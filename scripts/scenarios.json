@@ -342,7 +342,7 @@
       "end": [
         {
           "name": "pg_stat_bgwriter",
-          "cmd": ["bash", "-c", "sudo -u postgres psql -c \"SELECT buffers_checkpoint, buffers_clean, buffers_backend, buffers_alloc FROM pg_stat_bgwriter\""]
+          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT buffers_checkpoint, buffers_clean, buffers_backend, buffers_alloc FROM pg_stat_bgwriter"]
         }
       ]
     },
@@ -380,7 +380,7 @@
       "end": [
         {
           "name": "pg_stat_bgwriter",
-          "cmd": ["bash", "-c", "sudo -u postgres psql -c \"SELECT * FROM pg_stat_bgwriter\""]
+          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT * FROM pg_stat_bgwriter"]
         }
       ]
     },
@@ -443,7 +443,7 @@
       "end": [
         {
           "name": "pg_locks",
-          "cmd": ["bash", "-c", "sudo -u postgres psql -c \"SELECT mode, count(*) FROM pg_locks GROUP BY 1 ORDER BY 2 DESC\""]
+          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT mode, count(*) FROM pg_locks GROUP BY 1 ORDER BY 2 DESC"]
         }
       ]
     }
