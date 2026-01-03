@@ -1,0 +1,22 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+tfplan
+crash.log
+
+# Sensitive files
+*.pem
+*.key
+config.env
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Benchmark results (keep only reports)
+scripts/results/*.txt

@@ -1,0 +1,511 @@
+#!/bin/bash
+# =============================================================================
+# PostgreSQL 16 Installation & Configuration
+# Target: 10K TPS on Graviton + RAID10 EBS gp3
+#
+# IDEMPOTENT: Safe to run multiple times, same result guaranteed
+# CONFIG: Reads from config.env (not hardcoded)
+# =============================================================================
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log_info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
+log_skip()  { echo -e "${YELLOW}[SKIP]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# -----------------------------------------------------------------------------
+# Load Configuration from config.env
+# -----------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/config.env"
+
+if [ ! -f "${CONFIG_FILE}" ]; then
+    log_error "Config file not found: ${CONFIG_FILE}"
+    exit 1
+fi
+
+log_info "Loading configuration from ${CONFIG_FILE}"
+source "${CONFIG_FILE}"
+
+# Validate required variables
+required_vars=(
+    "PG_VERSION" "PG_DATA_DIR" "PG_WAL_DIR"
+    "PG_MAX_CONNECTIONS" "PG_SHARED_BUFFERS" "PG_WORK_MEM"
+    "PGBENCH_SCALE"
+)
+
+for var in "${required_vars[@]}"; do
+    if [ -z "${!var}" ]; then
+        log_error "Required variable ${var} not set in config.env"
+        exit 1
+    fi
+done
+
+# Aliases for readability
+DATA_DIR="${PG_DATA_DIR}"
+WAL_DIR="${PG_WAL_DIR}"
+
+echo ""
+echo "=============================================="
+echo "PostgreSQL ${PG_VERSION} Installation"
+echo "=============================================="
+echo ""
+echo "Data Directory: ${DATA_DIR}"
+echo "WAL Directory:  ${WAL_DIR}"
+echo "pgbench Scale:  ${PGBENCH_SCALE}"
+echo ""
+
+# -----------------------------------------------------------------------------
+# Step 1: Install PostgreSQL
+# -----------------------------------------------------------------------------
+echo "=== Step 1: Installing PostgreSQL ${PG_VERSION} ==="
+
+if dpkg -l | grep -q "postgresql-${PG_VERSION}"; then
+    log_skip "PostgreSQL ${PG_VERSION} already installed"
+else
+    if [ ! -f /etc/apt/sources.list.d/pgdg.list ]; then
+        log_info "Adding PostgreSQL repository..."
+        sudo apt-get install -y curl ca-certificates
+        sudo install -d /usr/share/postgresql-common/pgdg
+        sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+        . /etc/os-release
+        echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+        sudo apt-get update -qq
+    fi
+
+    log_info "Installing PostgreSQL ${PG_VERSION}..."
+    sudo apt-get install -y postgresql-${PG_VERSION} postgresql-contrib-${PG_VERSION}
+    log_ok "PostgreSQL ${PG_VERSION} installed"
+fi
+
+# -----------------------------------------------------------------------------
+# Step 2: Check if cluster already initialized
+# -----------------------------------------------------------------------------
+echo ""
+echo "=== Step 2: Checking Cluster State ==="
+
+cluster_needs_init() {
+    if [ -f "${DATA_DIR}/PG_VERSION" ]; then
+        local pg_ver=$(cat "${DATA_DIR}/PG_VERSION")
+        if [ "$pg_ver" = "${PG_VERSION}" ]; then
+            return 1
+        fi
+    fi
+    return 0
+}
+
+if cluster_needs_init; then
+    log_info "Cluster needs initialization"
+
+    if systemctl is-active --quiet postgresql 2>/dev/null; then
+        log_info "Stopping PostgreSQL..."
+        sudo systemctl stop postgresql
+    fi
+
+    # Prepare directories
+    for dir in "${DATA_DIR}" "${WAL_DIR}"; do
+        if [ -d "${dir}" ] && [ "$(ls -A ${dir} 2>/dev/null)" ]; then
+            log_info "Cleaning ${dir}..."
+            sudo rm -rf ${dir}/*
+        fi
+        sudo mkdir -p ${dir}
+        sudo chown postgres:postgres ${dir}
+        sudo chmod 700 ${dir}
+    done
+
+    echo ""
+    echo "=== Step 3: Initializing PostgreSQL Cluster ==="
+    sudo -u postgres /usr/lib/postgresql/${PG_VERSION}/bin/initdb \
+        -D ${DATA_DIR} \
+        --waldir=${WAL_DIR} \
+        --encoding=UTF8 \
+        --locale=C.UTF-8
+
+    log_ok "Cluster initialized"
+else
+    log_skip "Cluster already initialized at ${DATA_DIR}"
+fi
+
+# -----------------------------------------------------------------------------
+# Step 4: Generate and Apply Configuration
+# -----------------------------------------------------------------------------
+echo ""
+echo "=== Step 4: Applying Configuration ==="
+
+# Generate postgresql.conf from config.env variables
+generate_pg_config() {
+    cat << EOF
+# ==============================================================================
+# POSTGRESQL ${PG_VERSION} CONFIG: 10K TPS ON GRAVITON + RAID10
+# Generated by 05-db-install.sh from config.env
+# ==============================================================================
+
+# --- LISTEN ---
+listen_addresses = '${PG_LISTEN_ADDRESSES}'
+port = ${PG_PORT}
+
+# --- CONNECTIONS & MEMORY ---
+max_connections = ${PG_MAX_CONNECTIONS}
+shared_buffers = ${PG_SHARED_BUFFERS}
+work_mem = ${PG_WORK_MEM}
+maintenance_work_mem = ${PG_MAINTENANCE_WORK_MEM}
+effective_cache_size = ${PG_EFFECTIVE_CACHE_SIZE}
+
+# --- DISK I/O ---
+random_page_cost = ${PG_RANDOM_PAGE_COST}
+seq_page_cost = ${PG_SEQ_PAGE_COST}
+effective_io_concurrency = ${PG_EFFECTIVE_IO_CONCURRENCY}
+
+# --- WAL ---
+wal_compression = ${PG_WAL_COMPRESSION}
+wal_buffers = ${PG_WAL_BUFFERS}
+wal_writer_delay = ${PG_WAL_WRITER_DELAY}
+wal_writer_flush_after = ${PG_WAL_WRITER_FLUSH_AFTER}
+
+# --- CHECKPOINT ---
+max_wal_size = ${PG_MAX_WAL_SIZE}
+min_wal_size = ${PG_MIN_WAL_SIZE}
+checkpoint_timeout = ${PG_CHECKPOINT_TIMEOUT}
+checkpoint_completion_target = ${PG_CHECKPOINT_COMPLETION_TARGET}
+
+# --- SYNC & GROUP COMMIT ---
+synchronous_commit = ${PG_SYNCHRONOUS_COMMIT}
+commit_delay = ${PG_COMMIT_DELAY}
+commit_siblings = ${PG_COMMIT_SIBLINGS}
+
+# --- BACKGROUND WRITER ---
+bgwriter_delay = ${PG_BGWRITER_DELAY}
+bgwriter_lru_maxpages = ${PG_BGWRITER_LRU_MAXPAGES}
+bgwriter_lru_multiplier = ${PG_BGWRITER_LRU_MULTIPLIER}
+
+# --- AUTOVACUUM ---
+autovacuum = ${PG_AUTOVACUUM}
+autovacuum_max_workers = ${PG_AUTOVACUUM_MAX_WORKERS}
+autovacuum_naptime = ${PG_AUTOVACUUM_NAPTIME}
+autovacuum_vacuum_scale_factor = ${PG_AUTOVACUUM_VACUUM_SCALE_FACTOR}
+autovacuum_analyze_scale_factor = ${PG_AUTOVACUUM_ANALYZE_SCALE_FACTOR}
+autovacuum_vacuum_cost_limit = ${PG_AUTOVACUUM_VACUUM_COST_LIMIT}
+
+# --- PARALLEL QUERY ---
+max_worker_processes = ${PG_MAX_WORKER_PROCESSES}
+max_parallel_workers_per_gather = ${PG_MAX_PARALLEL_WORKERS_PER_GATHER}
+max_parallel_workers = ${PG_MAX_PARALLEL_WORKERS}
+
+# --- LOGGING ---
+log_min_duration_statement = ${PG_LOG_MIN_DURATION_STATEMENT}
+log_temp_files = ${PG_LOG_TEMP_FILES}
+log_checkpoints = ${PG_LOG_CHECKPOINTS}
+log_lock_waits = ${PG_LOG_LOCK_WAITS}
+logging_collector = on
+log_directory = 'log'
+log_filename = 'postgresql-%Y-%m-%d.log'
+EOF
+}
+
+EXPECTED_CONFIG=$(generate_pg_config)
+CURRENT_CONFIG=""
+if [ -f "${DATA_DIR}/postgresql.conf" ]; then
+    CURRENT_CONFIG=$(cat "${DATA_DIR}/postgresql.conf")
+fi
+
+if [ "$CURRENT_CONFIG" = "$EXPECTED_CONFIG" ]; then
+    log_skip "postgresql.conf already up-to-date"
+else
+    log_info "Updating postgresql.conf..."
+    echo "$EXPECTED_CONFIG" | sudo tee ${DATA_DIR}/postgresql.conf > /dev/null
+    log_ok "postgresql.conf updated"
+    CONFIG_CHANGED=1
+fi
+
+# pg_hba.conf
+EXPECTED_HBA="# TYPE  DATABASE        USER            ADDRESS                 METHOD
+local   all             postgres                                peer
+local   all             all                                     peer
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             ::1/128                 scram-sha-256
+host    all             all             0.0.0.0/0               scram-sha-256"
+
+CURRENT_HBA=""
+if [ -f "${DATA_DIR}/pg_hba.conf" ]; then
+    CURRENT_HBA=$(cat "${DATA_DIR}/pg_hba.conf")
+fi
+
+if [ "$CURRENT_HBA" = "$EXPECTED_HBA" ]; then
+    log_skip "pg_hba.conf already up-to-date"
+else
+    log_info "Updating pg_hba.conf..."
+    echo "$EXPECTED_HBA" | sudo tee ${DATA_DIR}/pg_hba.conf > /dev/null
+    log_ok "pg_hba.conf updated"
+    CONFIG_CHANGED=1
+fi
+
+# -----------------------------------------------------------------------------
+# Step 5: Update systemd service
+# -----------------------------------------------------------------------------
+echo ""
+echo "=== Step 5: Configuring systemd service ==="
+
+OVERRIDE_DIR="/etc/systemd/system/postgresql@${PG_VERSION}-main.service.d"
+OVERRIDE_FILE="${OVERRIDE_DIR}/override.conf"
+EXPECTED_OVERRIDE="[Service]
+Environment=PGDATA=${DATA_DIR}"
+
+if [ -f "$OVERRIDE_FILE" ] && [ "$(cat $OVERRIDE_FILE)" = "$EXPECTED_OVERRIDE" ]; then
+    log_skip "systemd override already configured"
+else
+    sudo mkdir -p ${OVERRIDE_DIR}
+    echo "$EXPECTED_OVERRIDE" | sudo tee ${OVERRIDE_FILE} > /dev/null
+    sudo systemctl daemon-reload
+    log_ok "systemd override configured"
+    CONFIG_CHANGED=1
+fi
+
+CLUSTER_CONF="/etc/postgresql/${PG_VERSION}/main/postgresql.conf"
+EXPECTED_CLUSTER_CONF="# Redirect to custom data directory
+data_directory = '${DATA_DIR}'
+hba_file = '${DATA_DIR}/pg_hba.conf'
+ident_file = '${DATA_DIR}/pg_ident.conf'
+include '${DATA_DIR}/postgresql.conf'"
+
+if [ -f "$CLUSTER_CONF" ] && [ "$(cat $CLUSTER_CONF)" = "$EXPECTED_CLUSTER_CONF" ]; then
+    log_skip "Cluster config pointer already set"
+else
+    echo "$EXPECTED_CLUSTER_CONF" | sudo tee ${CLUSTER_CONF} > /dev/null
+    log_ok "Cluster config pointer updated"
+    CONFIG_CHANGED=1
+fi
+
+# -----------------------------------------------------------------------------
+# Step 6: Start/Restart PostgreSQL
+# -----------------------------------------------------------------------------
+echo ""
+echo "=== Step 6: Starting PostgreSQL ==="
+
+if systemctl is-active --quiet postgresql; then
+    if [ "${CONFIG_CHANGED}" = "1" ]; then
+        log_info "Restarting PostgreSQL (config changed)..."
+        sudo systemctl restart postgresql
+        log_ok "PostgreSQL restarted"
+    else
+        log_skip "PostgreSQL already running, no config changes"
+    fi
+else
+    log_info "Starting PostgreSQL..."
+    sudo systemctl start postgresql
+    log_ok "PostgreSQL started"
+fi
+
+# Wait for ready
+sleep 2
+for i in {1..10}; do
+    if sudo -u postgres pg_isready -q; then
+        break
+    fi
+    sleep 1
+done
+
+if ! sudo -u postgres pg_isready -q; then
+    log_error "PostgreSQL failed to start!"
+    sudo journalctl -u postgresql --no-pager -n 50
+    exit 1
+fi
+
+# -----------------------------------------------------------------------------
+# Step 7: Verify Configuration
+# -----------------------------------------------------------------------------
+echo ""
+echo "=== Step 7: Configuration Verification ==="
+echo ""
+
+# Function to verify a single setting
+verify_setting() {
+    local setting="$1"
+    local expected="$2"
+
+    actual=$(sudo -u postgres psql -t -c "SHOW ${setting};" 2>/dev/null | tr -d ' ')
+
+    # Normalize values for comparison
+    actual_norm=$(echo "$actual" | tr '[:upper:]' '[:lower:]')
+    expected_norm=$(echo "$expected" | tr '[:upper:]' '[:lower:]')
+
+    # Handle numeric comparison (4.0 == 4)
+    if [[ "$expected_norm" =~ ^[0-9]+\.0$ ]]; then
+        expected_norm=$(echo "$expected_norm" | sed 's/\.0$//')
+    fi
+
+    # Handle time unit conversion (1000 == 1s)
+    if [[ "$expected_norm" == "1000" && "$actual_norm" == "1s" ]]; then
+        actual_norm="1000"
+    fi
+
+    if [[ "$actual_norm" == "$expected_norm" ]]; then
+        status="${GREEN}OK${NC}"
+    else
+        status="${RED}MISMATCH${NC}"
+        FAILED=1
+    fi
+
+    printf "  %-33s %-15s %-15s " "$setting" "$expected" "$actual"
+    echo -e "$status"
+}
+
+FAILED=0
+
+# Header
+printf "%-35s %-15s %-15s %s\n" "Setting" "Expected" "Actual" "Status"
+printf "%-35s %-15s %-15s %s\n" "-----------------------------------" "---------------" "---------------" "------"
+
+# --- CONNECTIONS & MEMORY (5) ---
+echo -e "${BLUE}CONNECTIONS & MEMORY${NC}"
+verify_setting "max_connections" "${PG_MAX_CONNECTIONS}"
+verify_setting "shared_buffers" "${PG_SHARED_BUFFERS}"
+verify_setting "work_mem" "${PG_WORK_MEM}"
+verify_setting "maintenance_work_mem" "${PG_MAINTENANCE_WORK_MEM}"
+verify_setting "effective_cache_size" "${PG_EFFECTIVE_CACHE_SIZE}"
+
+# --- DISK I/O (3) ---
+echo -e "${BLUE}DISK I/O${NC}"
+verify_setting "random_page_cost" "${PG_RANDOM_PAGE_COST}"
+verify_setting "seq_page_cost" "${PG_SEQ_PAGE_COST}"
+verify_setting "effective_io_concurrency" "${PG_EFFECTIVE_IO_CONCURRENCY}"
+
+# --- WAL (4) ---
+echo -e "${BLUE}WAL${NC}"
+verify_setting "wal_compression" "${PG_WAL_COMPRESSION}"
+verify_setting "wal_buffers" "${PG_WAL_BUFFERS}"
+verify_setting "wal_writer_delay" "${PG_WAL_WRITER_DELAY}"
+verify_setting "wal_writer_flush_after" "${PG_WAL_WRITER_FLUSH_AFTER}"
+
+# --- CHECKPOINT (4) ---
+echo -e "${BLUE}CHECKPOINT${NC}"
+verify_setting "max_wal_size" "${PG_MAX_WAL_SIZE}"
+verify_setting "min_wal_size" "${PG_MIN_WAL_SIZE}"
+verify_setting "checkpoint_timeout" "${PG_CHECKPOINT_TIMEOUT}"
+verify_setting "checkpoint_completion_target" "${PG_CHECKPOINT_COMPLETION_TARGET}"
+
+# --- SYNC & GROUP COMMIT (3) ---
+echo -e "${BLUE}SYNC & GROUP COMMIT${NC}"
+verify_setting "synchronous_commit" "${PG_SYNCHRONOUS_COMMIT}"
+verify_setting "commit_delay" "${PG_COMMIT_DELAY}"
+verify_setting "commit_siblings" "${PG_COMMIT_SIBLINGS}"
+
+# --- BACKGROUND WRITER (3) ---
+echo -e "${BLUE}BACKGROUND WRITER${NC}"
+verify_setting "bgwriter_delay" "${PG_BGWRITER_DELAY}"
+verify_setting "bgwriter_lru_maxpages" "${PG_BGWRITER_LRU_MAXPAGES}"
+verify_setting "bgwriter_lru_multiplier" "${PG_BGWRITER_LRU_MULTIPLIER}"
+
+# --- AUTOVACUUM (6) ---
+echo -e "${BLUE}AUTOVACUUM${NC}"
+verify_setting "autovacuum" "${PG_AUTOVACUUM}"
+verify_setting "autovacuum_max_workers" "${PG_AUTOVACUUM_MAX_WORKERS}"
+verify_setting "autovacuum_naptime" "${PG_AUTOVACUUM_NAPTIME}"
+verify_setting "autovacuum_vacuum_scale_factor" "${PG_AUTOVACUUM_VACUUM_SCALE_FACTOR}"
+verify_setting "autovacuum_analyze_scale_factor" "${PG_AUTOVACUUM_ANALYZE_SCALE_FACTOR}"
+verify_setting "autovacuum_vacuum_cost_limit" "${PG_AUTOVACUUM_VACUUM_COST_LIMIT}"
+
+# --- PARALLEL QUERY (3) ---
+echo -e "${BLUE}PARALLEL QUERY${NC}"
+verify_setting "max_worker_processes" "${PG_MAX_WORKER_PROCESSES}"
+verify_setting "max_parallel_workers_per_gather" "${PG_MAX_PARALLEL_WORKERS_PER_GATHER}"
+verify_setting "max_parallel_workers" "${PG_MAX_PARALLEL_WORKERS}"
+
+# --- LOGGING (4) ---
+echo -e "${BLUE}LOGGING${NC}"
+verify_setting "log_min_duration_statement" "${PG_LOG_MIN_DURATION_STATEMENT}"
+verify_setting "log_temp_files" "${PG_LOG_TEMP_FILES}"
+verify_setting "log_checkpoints" "${PG_LOG_CHECKPOINTS}"
+verify_setting "log_lock_waits" "${PG_LOG_LOCK_WAITS}"
+
+echo ""
+if [ $FAILED -eq 0 ]; then
+    log_ok "All configurations verified!"
+else
+    log_error "Some configurations need review"
+    exit 1
+fi
+
+echo ""
+echo "=== Directory Locations ==="
+echo -n "data_directory: "
+sudo -u postgres psql -t -c "SHOW data_directory;"
+
+# -----------------------------------------------------------------------------
+# Step 8: Initialize pgbench
+# -----------------------------------------------------------------------------
+echo ""
+echo "=== Step 8: pgbench Database ==="
+
+PGBENCH_DB="pgbench"
+EXPECTED_COUNT=$((PGBENCH_SCALE * 100000))
+
+# Ensure database exists
+if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw ${PGBENCH_DB}; then
+    log_info "Creating pgbench database..."
+    sudo -u postgres createdb ${PGBENCH_DB}
+fi
+
+# Check if pgbench tables exist and have correct row count
+ACCOUNTS_COUNT=$(sudo -u postgres psql -t -d ${PGBENCH_DB} \
+    -c "SELECT COUNT(*) FROM pgbench_accounts;" 2>/dev/null | tr -d ' ' || echo "0")
+
+if [ "$ACCOUNTS_COUNT" = "$EXPECTED_COUNT" ]; then
+    log_skip "pgbench already initialized (${ACCOUNTS_COUNT} accounts, scale ${PGBENCH_SCALE})"
+else
+    if [ "$ACCOUNTS_COUNT" = "0" ]; then
+        log_info "Initializing pgbench with scale ${PGBENCH_SCALE} (~18GB)..."
+    else
+        log_info "pgbench has ${ACCOUNTS_COUNT} accounts (expected ${EXPECTED_COUNT})"
+        log_info "Re-initializing with scale ${PGBENCH_SCALE}..."
+    fi
+    log_info "This may take several minutes..."
+    sudo -u postgres pgbench -i -s ${PGBENCH_SCALE} ${PGBENCH_DB}
+    log_ok "pgbench initialized (${EXPECTED_COUNT} accounts)"
+fi
+
+echo ""
+echo "=== pgbench Table Sizes ==="
+sudo -u postgres psql -d ${PGBENCH_DB} -c "
+SELECT
+    relname AS table_name,
+    pg_size_pretty(pg_total_relation_size(oid)) AS total_size,
+    to_char(reltuples, 'FM999,999,999,999') AS row_count
+FROM pg_class
+WHERE relname LIKE 'pgbench_%'
+ORDER BY pg_total_relation_size(oid) DESC;
+"
+
+echo ""
+echo "=== Disk Usage ==="
+df -h /data /wal
+
+# -----------------------------------------------------------------------------
+# Summary
+# -----------------------------------------------------------------------------
+echo ""
+echo "=============================================="
+log_ok "Installation Complete!"
+echo "=============================================="
+echo ""
+echo "PostgreSQL ${PG_VERSION} is running with:"
+echo "  - Data: ${DATA_DIR}"
+echo "  - WAL:  ${WAL_DIR}"
+echo "  - pgbench: ${PGBENCH_DB} (scale ${PGBENCH_SCALE})"
+echo ""
+echo "Configuration source: ${CONFIG_FILE}"
+echo ""
+echo "Quick commands:"
+echo "  sudo -u postgres psql                                      # Connect to PostgreSQL"
+echo "  sudo systemctl status postgresql                           # Check status"
+echo ""
+echo "Benchmark command (10K TPS test):"
+echo "  sudo -u postgres pgbench -c 100 -j 8 -T 60 -P 5 ${PGBENCH_DB}"
+echo ""
