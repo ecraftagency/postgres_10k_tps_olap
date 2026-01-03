@@ -685,7 +685,71 @@ autovacuum_vacuum_cost_limit = 10000  # 50x default, "thả xích"
 
 ---
 
-## 7. Conclusion
+## 7. Advanced Scenarios: The Limits of Architecture
+
+### 7.1 Connection Overhead (The Cost of Non-Pooling)
+
+| Metric | Persistent Connection | Reconnect per TX (`-C`) |
+|--------|----------------------|-------------------------|
+| **TPS** | 12,331 | 1,704 |
+| **Drop** | - | **-86%** |
+| **CPU System** | ~15% | **71%** |
+
+**Conclusion:** Connection Pooling (PgBouncer) is **MANDATORY** for high-performance apps. Without it, the expensive `fork()` mechanism of PostgreSQL destroys throughput.
+
+```
+Connection Cost Breakdown:
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   Query Execution:     0.08 ms  ████                                │
+│   Connection Setup:    0.50 ms  ████████████████████████████        │
+│                                                                     │
+│   → Connection costs 6x more than the actual query!                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Hardware Saturation (Pure Read)
+
+| Metric | Value | Note |
+|--------|-------|------|
+| **Scenario** | SELECT-only (`-S`) | 50 clients, 4 threads |
+| **Dataset** | 21 GB | > 16 GB RAM |
+| **TPS** | 12,331 | CPU bound when data in cache |
+
+**Analysis:** Confirms the **Disk I/O Ceiling**. Even with read-only queries, if dataset > RAM, performance is dictated by Disk IOPS (~12-13k IOPS), not CPU.
+
+### 7.3 Concurrency Safety (max_connections as Circuit Breaker)
+
+| Metric | Value |
+|--------|-------|
+| **Scenario** | 1000 clients vs `max_connections=300` |
+| **Result** | Connection Refused (Expected) |
+
+**Observation:** The `max_connections` limit successfully acted as a **Circuit Breaker**, preventing the OS from being overwhelmed by too many processes. This is intentional protection, not a bug.
+
+```
+PostgreSQL Connection Model:
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   1 Connection = 1 Process = ~10-30 MB RAM                          │
+│                                                                     │
+│   max_connections = 300:                                            │
+│   - RAM Reserved: 300 × 30 MB = 9 GB                                │
+│   - Context Switches: Manageable                                    │
+│                                                                     │
+│   max_connections = 1000:                                           │
+│   - RAM Reserved: 1000 × 30 MB = 30 GB (exceeds instance RAM!)     │
+│   - Context Switches: CPU thrashing                                 │
+│                                                                     │
+│   → Use Connection Pooler for 1000+ concurrent users               │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 8. Conclusion
 
 ### Before vs After Summary
 

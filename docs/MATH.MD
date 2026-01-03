@@ -427,6 +427,55 @@ $\rightarrow$ Chọn **max_connections = 300** (với margin)
 
 ---
 
+### 4.4 Connection Overhead (Chi phí Forking)
+
+Từ benchmark "Connection Storm" (`-C` reconnect per transaction):
+
+| Metric | Persistent | Reconnect (`-C`) |
+|--------|------------|------------------|
+| TPS | 12,331 | 1,704 |
+| Drop | - | **-86%** |
+
+**Công thức chi phí kết nối ($T_{connect}$):**
+
+$$T_{tx} = \frac{1}{TPS_{persistent}} = \frac{1}{12,331} = 0.081 \text{ ms}$$
+
+$$T_{total} = \frac{1}{TPS_{reconnect}} = \frac{1}{1,704} = 0.587 \text{ ms}$$
+
+$$T_{connect} = T_{total} - T_{tx} = 0.587 - 0.081 = 0.506 \text{ ms}$$
+
+**Phân tích:**
+
+```
+Thời gian 1 Transaction với Reconnect:
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   Query Execution:     0.08 ms  ████                                │
+│   Connection Setup:    0.51 ms  ██████████████████████████████      │
+│                        ──────                                       │
+│   Total:               0.59 ms                                      │
+│                                                                     │
+│   → Connection costs 6.3× more than the actual query!              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Công thức TPS với Connection Pool:**
+
+$$TPS_{pooled} = \frac{1}{T_{tx}} = \frac{1}{0.081} = 12,345$$
+
+$$TPS_{no\_pool} = \frac{1}{T_{tx} + T_{connect}} = \frac{1}{0.587} = 1,704$$
+
+$$Efficiency_{pool} = \frac{TPS_{pooled}}{TPS_{no\_pool}} = \frac{12,345}{1,704} = 7.2\times$$
+
+**Kết luận:**
+- Connection setup tốn **0.5 ms** CPU System time
+- Gấp **6.3 lần** thời gian thực thi query
+- Connection Pooling tăng throughput **7.2×**
+- $\rightarrow$ **Luôn dùng PgBouncer hoặc Connection Pool**
+
+---
+
 ## 5. COST ANALYSIS (Economic Math)
 
 ### 5.1 Cost per TPS
