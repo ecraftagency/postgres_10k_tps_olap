@@ -1,0 +1,60 @@
+# =============================================================================
+# PgCat Configuration for PostgreSQL Benchmark
+# =============================================================================
+# Update POSTGRES_HOST with the private IP of your PostgreSQL instance
+# =============================================================================
+
+[general]
+host = "0.0.0.0"
+port = 6432
+admin_username = "pgcat"
+admin_password = "pgcat"
+
+# Unix socket for local connections (benchmark clients)
+unix_socket_dir = "/var/run/pgcat"
+
+# Connection settings
+connect_timeout = 5000
+idle_timeout = 60000
+server_lifetime = 86400000
+
+# Worker threads (match CPU cores)
+worker_threads = 8
+
+# Logging
+log_client_connections = false
+log_client_disconnections = false
+
+# =============================================================================
+# Pool Configuration
+# =============================================================================
+[pools.pgbench]
+pool_mode = "transaction"
+default_role = "primary"
+query_parser_enabled = true
+primary_reads_enabled = true
+sharding_function = "pg_bigint_hash"
+
+# Pool size tuning
+pool_size = 100
+min_pool_size = 10
+server_lifetime = 86400000
+
+[pools.pgbench.users.0]
+username = "postgres"
+password = ""
+pool_size = 100
+
+[pools.pgbench.shards.0]
+database = "pgbench"
+servers = [
+    ["10.0.1.227", 5432, "primary"]
+]
+
+# =============================================================================
+# Health Check
+# =============================================================================
+[pools.pgbench.healthcheck]
+enabled = true
+delay = 30000
+timeout = 5000
