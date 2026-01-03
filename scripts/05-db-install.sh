@@ -226,11 +226,18 @@ else
 fi
 
 # pg_hba.conf
+# IMPORTANT: VPC subnet uses 'trust' for PgCat/internal connections
+# External connections use scram-sha-256
 EXPECTED_HBA="# TYPE  DATABASE        USER            ADDRESS                 METHOD
+# Local connections
 local   all             postgres                                peer
 local   all             all                                     peer
+# Localhost
 host    all             all             127.0.0.1/32            scram-sha-256
 host    all             all             ::1/128                 scram-sha-256
+# VPC internal (PgCat, Replicas) - trust for low latency
+host    all             all             10.0.0.0/8              trust
+# External connections - password required
 host    all             all             0.0.0.0/0               scram-sha-256"
 
 CURRENT_HBA=""
@@ -316,6 +323,24 @@ if ! sudo -u postgres pg_isready -q; then
     log_error "PostgreSQL failed to start!"
     sudo journalctl -u postgresql --no-pager -n 50
     exit 1
+fi
+
+# -----------------------------------------------------------------------------
+# Step 6b: Set postgres user password (for PgCat/external connections)
+# -----------------------------------------------------------------------------
+echo ""
+echo "=== Step 6b: Setting postgres user password ==="
+
+# Default password for benchmark - change in production!
+PG_PASSWORD="${PG_PASSWORD:-benchmark}"
+
+# Check if password already set by trying to connect with it
+if PGPASSWORD="${PG_PASSWORD}" psql -h 127.0.0.1 -U postgres -c "SELECT 1;" &>/dev/null; then
+    log_skip "postgres password already set"
+else
+    log_info "Setting postgres user password..."
+    sudo -u postgres psql -c "ALTER USER postgres PASSWORD '${PG_PASSWORD}';"
+    log_ok "postgres password set (default: benchmark)"
 fi
 
 # -----------------------------------------------------------------------------
@@ -500,10 +525,19 @@ echo "  - Data: ${DATA_DIR}"
 echo "  - WAL:  ${WAL_DIR}"
 echo "  - pgbench: ${PGBENCH_DB} (scale ${PGBENCH_SCALE})"
 echo ""
+echo -e "${YELLOW}IMPORTANT: Config files are in ${DATA_DIR}, NOT /etc/postgresql/${NC}"
+echo "  - postgresql.conf: ${DATA_DIR}/postgresql.conf"
+echo "  - pg_hba.conf:     ${DATA_DIR}/pg_hba.conf"
+echo ""
+echo "Authentication:"
+echo "  - VPC internal (10.0.0.0/8): trust (no password)"
+echo "  - External/PgCat: password = '${PG_PASSWORD}'"
+echo ""
 echo "Configuration source: ${CONFIG_FILE}"
 echo ""
 echo "Quick commands:"
-echo "  sudo -u postgres psql                                      # Connect to PostgreSQL"
+echo "  sudo -u postgres psql                                      # Connect locally"
+echo "  PGPASSWORD=${PG_PASSWORD} psql -h <IP> -U postgres         # Connect remotely"
 echo "  sudo systemctl status postgresql                           # Check status"
 echo ""
 echo "Benchmark command (10K TPS test):"

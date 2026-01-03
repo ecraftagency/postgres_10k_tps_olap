@@ -6,6 +6,24 @@ Hướng dẫn cấu hình chi tiết PostgreSQL 16 cho heavy-write OLTP trên A
 
 ---
 
+> **⚠️ QUAN TRỌNG: Vị trí Config Files**
+>
+> Config files nằm trong **data directory**, KHÔNG PHẢI `/etc/postgresql/`:
+>
+> ```
+> /data/postgresql/postgresql.conf   ← Main config
+> /data/postgresql/pg_hba.conf       ← Authentication rules
+> /data/postgresql/pg_ident.conf     ← User mapping
+> ```
+>
+> File `/etc/postgresql/16/main/postgresql.conf` chỉ là **pointer** đến data directory.
+>
+> **Authentication:**
+> - VPC internal (`10.0.0.0/8`): `trust` - không cần password (cho PgCat, replicas)
+> - External: `scram-sha-256` - password = `benchmark`
+
+---
+
 ## 1. Hardware Context
 
 ```
