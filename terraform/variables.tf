@@ -7,7 +7,7 @@ variable "az" {
 }
 
 variable "instance_type" {
-  default = "c8gb.2xlarge"
+  default = "c7g.2xlarge"
 }
 
 variable "ami" {
@@ -29,7 +29,7 @@ variable "subnet_cidr" {
 }
 
 variable "spot_price" {
-  default = "0.15"
+  default = "0.60"
 }
 
 variable "pg_data_volume_count" {
