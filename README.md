@@ -22,7 +22,7 @@ PG Tuned     ████████████████████ 11,469
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    AWS c7g.2xlarge                              │
+│                    AWS c8g.2xlarge                              │
 │                  (8 vCPU, 16GB RAM)                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
@@ -64,7 +64,7 @@ scp -r scripts/ ubuntu@<IP>:~/
 ssh ubuntu@<IP>
 
 # Install dependencies
-sudo ./scripts/deps.sh
+sudo ./scripts/00-deps.sh
 
 # OS tuning
 sudo ./scripts/01-os-tuning.sh

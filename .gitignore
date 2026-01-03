@@ -13,6 +13,8 @@ config.env
 
 # OS
 .DS_Store
+*.swp
+*.swo
 
 # Python
 __pycache__/

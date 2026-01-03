@@ -62,8 +62,8 @@ COMMIT;  -- WAL sync here!
 
 | Component | Spec | Cost (us-west-2) |
 |-----------|------|------------------|
-| **Instance** | c7g.2xlarge | $0.289/hour |
-| **vCPU** | 8 (Graviton3) | ARM64 |
+| **Instance** | c8g.2xlarge | $0.289/hour |
+| **vCPU** | 8 (Graviton4) | ARM64 |
 | **RAM** | 16 GB | |
 | **Network** | Up to 15 Gbps | |
 | **EBS Bandwidth** | Up to 10 Gbps | |
@@ -523,7 +523,7 @@ autovacuum_vacuum_cost_limit = 10000  # 50x default, "thả xích"
 
 | Component | Spec | Cost/Month |
 |-----------|------|------------|
-| EC2 c7g.2xlarge | On-Demand | $208.08 |
+| EC2 c8g.2xlarge | On-Demand | $208.08 |
 | EBS DATA | 8× 50GB gp3 | $25.60 |
 | EBS WAL | 8× 30GB gp3 | $15.36 |
 | **Total** | | **$249.04** |
@@ -531,7 +531,7 @@ autovacuum_vacuum_cost_limit = 10000  # 50x default, "thả xích"
 **With Spot Instance (70% discount):**
 | Component | Spec | Cost/Month |
 |-----------|------|------------|
-| EC2 c7g.2xlarge | Spot (~$0.087/hr) | $62.64 |
+| EC2 c8g.2xlarge | Spot (~$0.087/hr) | $62.64 |
 | EBS DATA | 8× 50GB gp3 | $25.60 |
 | EBS WAL | 8× 30GB gp3 | $15.36 |
 | **Total** | | **$103.60** |
@@ -600,7 +600,7 @@ autovacuum_vacuum_cost_limit = 10000  # 50x default, "thả xích"
 
 | Option | Change | Expected Result | Cost Impact |
 |--------|--------|-----------------|-------------|
-| **More RAM** | c7g.4xlarge (32GB) | +30-50% TPS | +$208/mo |
+| **More RAM** | c8g.4xlarge (32GB) | +30-50% TPS | +$208/mo |
 | **More IOPS** | Provision 6000 IOPS/disk | +20-30% TPS | +$160/mo |
 | **io2 Block Express** | Replace gp3 with io2 | +50% TPS, lower latency | +$500/mo |
 | **Larger shared_buffers** | 24GB (> dataset) | +100-200% TPS | Requires larger instance |

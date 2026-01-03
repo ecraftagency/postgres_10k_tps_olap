@@ -1,7 +1,7 @@
 # MATH.MD: Nền tảng Toán học của High-Performance I/O Systems
 
 **Scope:** PostgreSQL, Kafka, Distributed Storage (MinIO, Cassandra, etc.)
-**Environment:** AWS c7g.2xlarge (8 vCPU, 16GB RAM) + 16× EBS gp3 RAID10
+**Environment:** AWS c8g.2xlarge (8 vCPU, 16GB RAM) + 16× EBS gp3 RAID10
 
 > **Nguyên tắc cốt lõi:** Tuning không phải nghệ thuật hay may mắn. Nó là **Toán học chính xác**.
 >
@@ -62,7 +62,7 @@ $$Throughput = \frac{QD}{Latency}$$
 
 **Tính toán Queue Depth cần thiết:**
 
-Hệ thống c7g.2xlarge có EBS bandwidth tối đa ~1,250 MB/s. Với block size 1MB và latency 15.96ms (từ benchmark):
+Hệ thống c8g.2xlarge có EBS bandwidth tối đa ~1,250 MB/s. Với block size 1MB và latency 15.96ms (từ benchmark):
 
 $$IOPS_{required} = \frac{1,250 \text{ MB/s}}{1 \text{ MB}} = 1,250 \text{ IOPS}$$
 
@@ -203,7 +203,7 @@ $$Dirty\_Ratio = \frac{M_{dirty}}{M_{total}} \times 100$$
 |----------|-------|--------|
 | $V_{disk}$ (Max Write Speed) | 509 MB/s | Benchmark data_seq_write |
 | $T_{stall}$ (Max acceptable) | 1 second | Target |
-| $M_{total}$ (System RAM) | 16,384 MB | c7g.2xlarge |
+| $M_{total}$ (System RAM) | 16,384 MB | c8g.2xlarge |
 
 $$M_{dirty} = 509 \text{ MB/s} \times 1\text{s} = 509 \text{ MB}$$
 
@@ -441,7 +441,7 @@ $$Cost\_per\_Million\_TX = \frac{Monthly\_Cost}{TPS \times 86400 \times 30}$$
 
 | Component | Cost/Month |
 |-----------|------------|
-| EC2 c7g.2xlarge | $208.08 |
+| EC2 c8g.2xlarge | $208.08 |
 | EBS DATA (8×50GB gp3) | $25.60 |
 | EBS WAL (8×30GB gp3) | $15.36 |
 | **Total** | **$249.04** |

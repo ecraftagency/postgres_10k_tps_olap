@@ -14,7 +14,7 @@ Hướng dẫn cấu hình chi tiết PostgreSQL 16 cho heavy-write OLTP trên A
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  ┌───────────────────────────────────────────────────────────────┐ │
-│  │  EC2: c7g.2xlarge (Graviton 3, ARM64)                         │ │
+│  │  EC2: c8g.2xlarge (Graviton 4, ARM64)                         │ │
 │  │  - 8 vCPU                                                     │ │
 │  │  - 16 GB RAM                                                  │ │
 │  │  - EBS Bandwidth: ~10 Gbps                                    │ │
