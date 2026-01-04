@@ -21,47 +21,96 @@ TEMPLATE="${SCRIPT_DIR}/_template/config.env.template"
 # Format: VCPU:RAM_GB:NET_GBPS:EBS_GBPS
 # =============================================================================
 get_instance_specs() {
+    # Format: VCPU:RAM_GB:NET_GBPS:EBS_GBPS
+    # Source: https://aws.amazon.com/ec2/instance-types/
     local instance_type="$1"
     case "$instance_type" in
         # C8g - Compute optimized (Graviton4)
-        c8g.medium)   echo "1:2:12:10" ;;
-        c8g.large)    echo "2:4:12:10" ;;
-        c8g.xlarge)   echo "4:8:12:10" ;;
-        c8g.2xlarge)  echo "8:16:15:10" ;;
-        c8g.4xlarge)  echo "16:32:15:10" ;;
-        c8g.8xlarge)  echo "32:64:15:10" ;;
-        c8g.12xlarge) echo "48:96:22:15" ;;
-        c8g.16xlarge) echo "64:128:30:20" ;;
-        c8g.24xlarge) echo "96:192:40:30" ;;
-        c8g.48xlarge) echo "192:384:50:40" ;;
-        # C8gb - Compute optimized + Block storage (Graviton4, higher EBS BW)
-        c8gb.xlarge)   echo "4:8:33:15" ;;
-        c8gb.2xlarge)  echo "8:16:33:15" ;;
-        c8gb.4xlarge)  echo "16:32:33:15" ;;
-        c8gb.8xlarge)  echo "32:64:33:15" ;;
-        c8gb.12xlarge) echo "48:96:40:22" ;;
-        c8gb.16xlarge) echo "64:128:50:30" ;;
-        c8gb.24xlarge) echo "96:192:50:40" ;;
+        c8g.medium)    echo "1:2:12:10" ;;
+        c8g.large)     echo "2:4:12:10" ;;
+        c8g.xlarge)    echo "4:8:12:10" ;;
+        c8g.2xlarge)   echo "8:16:15:10" ;;
+        c8g.4xlarge)   echo "16:32:15:10" ;;
+        c8g.8xlarge)   echo "32:64:15:10" ;;
+        c8g.12xlarge)  echo "48:96:22:15" ;;
+        c8g.16xlarge)  echo "64:128:30:20" ;;
+        c8g.24xlarge)  echo "96:192:40:30" ;;
+        c8g.48xlarge)  echo "192:384:50:40" ;;
+        # C8gd - Compute + Local NVMe (Graviton4)
+        c8gd.medium)   echo "1:2:12:10" ;;
+        c8gd.large)    echo "2:4:12:10" ;;
+        c8gd.xlarge)   echo "4:8:12:10" ;;
+        c8gd.2xlarge)  echo "8:16:15:10" ;;
+        c8gd.4xlarge)  echo "16:32:15:10" ;;
+        c8gd.8xlarge)  echo "32:64:15:10" ;;
+        c8gd.12xlarge) echo "48:96:22:15" ;;
+        c8gd.16xlarge) echo "64:128:30:20" ;;
+        c8gd.24xlarge) echo "96:192:40:30" ;;
+        c8gd.48xlarge) echo "192:384:50:40" ;;
+        # C8gb - Compute + Block optimized (Graviton4, higher EBS BW)
+        c8gb.medium)   echo "1:2:16:25" ;;
+        c8gb.large)    echo "2:4:20:25" ;;
+        c8gb.xlarge)   echo "4:8:26:25" ;;
+        c8gb.2xlarge)  echo "8:16:33:25" ;;
+        c8gb.4xlarge)  echo "16:32:33:25" ;;
+        c8gb.8xlarge)  echo "32:64:66:50" ;;
+        c8gb.12xlarge) echo "48:96:100:75" ;;
+        c8gb.16xlarge) echo "64:128:133:100" ;;
+        c8gb.24xlarge) echo "96:192:200:150" ;;
         # R8g - Memory optimized (Graviton4)
-        r8g.medium)   echo "1:8:12:10" ;;
-        r8g.large)    echo "2:16:12:10" ;;
-        r8g.xlarge)   echo "4:32:12:10" ;;
-        r8g.2xlarge)  echo "8:64:15:10" ;;
-        r8g.4xlarge)  echo "16:128:15:10" ;;
-        r8g.8xlarge)  echo "32:256:15:10" ;;
-        r8g.12xlarge) echo "48:384:22:15" ;;
-        r8g.16xlarge) echo "64:512:30:20" ;;
-        r8g.24xlarge) echo "96:768:40:30" ;;
+        r8g.medium)    echo "1:8:12:10" ;;
+        r8g.large)     echo "2:16:12:10" ;;
+        r8g.xlarge)    echo "4:32:12:10" ;;
+        r8g.2xlarge)   echo "8:64:15:10" ;;
+        r8g.4xlarge)   echo "16:128:15:10" ;;
+        r8g.8xlarge)   echo "32:256:15:10" ;;
+        r8g.12xlarge)  echo "48:384:22:15" ;;
+        r8g.16xlarge)  echo "64:512:30:20" ;;
+        r8g.24xlarge)  echo "96:768:40:30" ;;
+        r8g.48xlarge)  echo "192:1536:50:40" ;;
+        # R8gd - Memory + Local NVMe (Graviton4)
+        r8gd.medium)   echo "1:8:12:10" ;;
+        r8gd.large)    echo "2:16:12:10" ;;
+        r8gd.xlarge)   echo "4:32:12:10" ;;
+        r8gd.2xlarge)  echo "8:64:15:10" ;;
+        r8gd.4xlarge)  echo "16:128:15:10" ;;
+        r8gd.8xlarge)  echo "32:256:15:10" ;;
+        r8gd.12xlarge) echo "48:384:22:15" ;;
+        r8gd.16xlarge) echo "64:512:30:20" ;;
+        r8gd.24xlarge) echo "96:768:40:30" ;;
+        r8gd.48xlarge) echo "192:1536:50:40" ;;
+        # R8gb - Memory + Block optimized (Graviton4, higher EBS BW)
+        r8gb.medium)   echo "1:8:16:25" ;;
+        r8gb.large)    echo "2:16:20:25" ;;
+        r8gb.xlarge)   echo "4:32:26:25" ;;
+        r8gb.2xlarge)  echo "8:64:33:25" ;;
+        r8gb.4xlarge)  echo "16:128:33:25" ;;
+        r8gb.8xlarge)  echo "32:256:66:50" ;;
+        r8gb.12xlarge) echo "48:384:100:75" ;;
+        r8gb.16xlarge) echo "64:512:133:100" ;;
+        r8gb.24xlarge) echo "96:768:200:150" ;;
         # M8g - General purpose (Graviton4)
-        m8g.medium)   echo "1:4:12:10" ;;
-        m8g.large)    echo "2:8:12:10" ;;
-        m8g.xlarge)   echo "4:16:12:10" ;;
-        m8g.2xlarge)  echo "8:32:15:10" ;;
-        m8g.4xlarge)  echo "16:64:15:10" ;;
-        m8g.8xlarge)  echo "32:128:15:10" ;;
-        m8g.12xlarge) echo "48:192:22:15" ;;
-        m8g.16xlarge) echo "64:256:30:20" ;;
-        m8g.24xlarge) echo "96:384:40:30" ;;
+        m8g.medium)    echo "1:4:12:10" ;;
+        m8g.large)     echo "2:8:12:10" ;;
+        m8g.xlarge)    echo "4:16:12:10" ;;
+        m8g.2xlarge)   echo "8:32:15:10" ;;
+        m8g.4xlarge)   echo "16:64:15:10" ;;
+        m8g.8xlarge)   echo "32:128:15:10" ;;
+        m8g.12xlarge)  echo "48:192:22:15" ;;
+        m8g.16xlarge)  echo "64:256:30:20" ;;
+        m8g.24xlarge)  echo "96:384:40:30" ;;
+        m8g.48xlarge)  echo "192:768:50:40" ;;
+        # M8gd - General purpose + Local NVMe (Graviton4)
+        m8gd.medium)   echo "1:4:12:10" ;;
+        m8gd.large)    echo "2:8:12:10" ;;
+        m8gd.xlarge)   echo "4:16:12:10" ;;
+        m8gd.2xlarge)  echo "8:32:15:10" ;;
+        m8gd.4xlarge)  echo "16:64:15:10" ;;
+        m8gd.8xlarge)  echo "32:128:15:10" ;;
+        m8gd.12xlarge) echo "48:192:22:15" ;;
+        m8gd.16xlarge) echo "64:256:30:20" ;;
+        m8gd.24xlarge) echo "96:384:40:30" ;;
+        m8gd.48xlarge) echo "192:768:50:40" ;;
         *) echo "" ;;
     esac
 }
@@ -75,11 +124,15 @@ usage() {
     echo "  wal_disk_count   Number of EBS disks for WAL volume (e.g., 8)"
     echo "  raid_level       RAID level: raid0, raid1, raid10 (default: raid10)"
     echo ""
-    echo "Supported instance types:"
-    echo "  c8g.{medium,large,xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge,48xlarge}"
-    echo "  c8gb.{xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge}  (block optimized)"
-    echo "  r8g.{medium,large,xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge}"
-    echo "  m8g.{medium,large,xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge}"
+    echo "Supported Graviton4 instance types:"
+    echo "  c8g.{medium..48xlarge}   - Compute optimized"
+    echo "  c8gd.{medium..48xlarge}  - Compute + Local NVMe"
+    echo "  c8gb.{medium..24xlarge}  - Compute + Block optimized (higher EBS BW)"
+    echo "  r8g.{medium..48xlarge}   - Memory optimized"
+    echo "  r8gd.{medium..48xlarge}  - Memory + Local NVMe"
+    echo "  r8gb.{medium..24xlarge}  - Memory + Block optimized (higher EBS BW)"
+    echo "  m8g.{medium..48xlarge}   - General purpose"
+    echo "  m8gd.{medium..48xlarge}  - General purpose + Local NVMe"
     exit 1
 }
 

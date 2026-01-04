@@ -1,4 +1,4 @@
-# Tuning Notes: c8gb.2xlarge.33.15.8disk.raid10
+# Tuning Notes: c8gb.2xlarge.33.25.8disk.raid10
 
 ## Hardware Specs
 
@@ -8,7 +8,7 @@
 | vCPU | 8 |
 | RAM | 16 GB |
 | Network | 33 Gbps |
-| EBS Bandwidth | 15 Gbps |
+| EBS Bandwidth | 25 Gbps |
 | DATA Volume | 8x 50GB gp3 RAID10 (200GB usable) |
 | WAL Volume | 8x 30GB gp3 RAID10 (120GB usable) |
 
