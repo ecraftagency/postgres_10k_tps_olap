@@ -4,7 +4,7 @@
 
 [general]
 host = "0.0.0.0"
-port = 6432
+port = 5432
 admin_username = "admin"
 admin_password = "admin_secure"
 
@@ -24,8 +24,8 @@ prometheus_exporter_port = 9090
 log_client_connections = false
 log_client_disconnections = false
 
-# Auth
-auth_type = "md5"
+# Auth - trust for VPC connections (pg_hba.conf configured for VPC CIDR)
+auth_type = "trust"
 
 # ------------------------------------------------------------------------------
 # POOL: pgbench
@@ -45,7 +45,7 @@ load_balancing_mode = "random"
 
 [pools.pgbench.users.0]
 username = "postgres"
-password = "benchmark"
+password = "postgres"
 pool_size = 250
 
 [pools.pgbench.shards.0]

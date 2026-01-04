@@ -58,6 +58,6 @@ output "proxy_ssh_command" {
 }
 
 output "postgres_private_ip_for_pgcat" {
-  value = aws_instance.postgres.private_ip
+  value       = aws_spot_instance_request.postgres.private_ip
   description = "Use this IP in PgCat config"
 }

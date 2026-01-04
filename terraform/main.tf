@@ -8,7 +8,8 @@ terraform {
 }
 
 provider "aws" {
-  region = var.region
+  region  = var.region
+  profile = "boxloop-admin"
 }
 
 resource "aws_vpc" "main" {
