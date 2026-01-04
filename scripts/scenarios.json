@@ -878,6 +878,14 @@
             "-c",
             "echo 'Time,HitRatio,DiskRead,XactCommit,CkptReq,BufBackend,WalBytes'; for i in $(seq 1 12); do sudo -u postgres psql -t -A -F',' -c \"SELECT to_char(now(), 'HH24:MI:SS'), round(d.blks_hit::numeric / (d.blks_hit + d.blks_read + 1) * 100, 2), d.blks_read, d.xact_commit, b.checkpoints_req, b.buffers_backend, w.wal_bytes FROM pg_stat_database d, pg_stat_bgwriter b, pg_stat_wal w WHERE d.datname = current_database()\"; sleep 5; done"
           ]
+        },
+        {
+          "name": "pg_conn_states",
+          "cmd": [
+            "bash",
+            "-c",
+            "for i in $(seq 1 12); do echo \"=== $(date +%H:%M:%S) ===\"; sudo -u postgres psql -t -c \"SELECT state, count(*) FROM pg_stat_activity GROUP BY 1 ORDER BY 2 DESC\"; sleep 5; done"
+          ]
         }
       ],
       "end": []
