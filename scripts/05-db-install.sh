@@ -504,6 +504,309 @@ echo "=== Disk Usage ==="
 df -h /data /wal
 
 # -----------------------------------------------------------------------------
+# Step 9: Print All Configuration Values
+# -----------------------------------------------------------------------------
+echo ""
+echo "=============================================="
+echo "COMPLETE CONFIGURATION REPORT"
+echo "=============================================="
+echo ""
+echo "Hardware Context: $(basename $(dirname ${CONFIG_FILE}))"
+echo "Config Source: ${CONFIG_FILE}"
+echo ""
+
+# Function to print a category header
+print_category() {
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  $1${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    printf "  %-40s %-20s %-20s\n" "Parameter" "Config Value" "Actual Value"
+    printf "  %-40s %-20s %-20s\n" "────────────────────────────────────────" "────────────────────" "────────────────────"
+}
+
+# Function to print config vs actual value
+print_config() {
+    local param="$1"
+    local config_val="$2"
+    local actual_val="$3"
+
+    if [ "$config_val" = "$actual_val" ]; then
+        printf "  %-40s %-20s ${GREEN}%-20s${NC}\n" "$param" "$config_val" "$actual_val"
+    else
+        printf "  %-40s %-20s ${YELLOW}%-20s${NC}\n" "$param" "$config_val" "$actual_val"
+    fi
+}
+
+CONFIG_COUNT=0
+
+# =============================================================================
+# 1. OS TUNING - MEMORY (9 params)
+# =============================================================================
+print_category "1. OS TUNING - MEMORY"
+
+print_config "vm.swappiness" "${VM_SWAPPINESS}" "$(cat /proc/sys/vm/swappiness 2>/dev/null || echo 'N/A')"
+print_config "vm.dirty_background_ratio" "${VM_DIRTY_BACKGROUND_RATIO}" "$(cat /proc/sys/vm/dirty_background_ratio 2>/dev/null || echo 'N/A')"
+print_config "vm.dirty_ratio" "${VM_DIRTY_RATIO}" "$(cat /proc/sys/vm/dirty_ratio 2>/dev/null || echo 'N/A')"
+print_config "vm.dirty_expire_centisecs" "${VM_DIRTY_EXPIRE_CENTISECS}" "$(cat /proc/sys/vm/dirty_expire_centisecs 2>/dev/null || echo 'N/A')"
+print_config "vm.dirty_writeback_centisecs" "${VM_DIRTY_WRITEBACK_CENTISECS}" "$(cat /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null || echo 'N/A')"
+print_config "vm.overcommit_memory" "${VM_OVERCOMMIT_MEMORY}" "$(cat /proc/sys/vm/overcommit_memory 2>/dev/null || echo 'N/A')"
+print_config "vm.overcommit_ratio" "${VM_OVERCOMMIT_RATIO}" "$(cat /proc/sys/vm/overcommit_ratio 2>/dev/null || echo 'N/A')"
+print_config "vm.min_free_kbytes" "${VM_MIN_FREE_KBYTES}" "$(cat /proc/sys/vm/min_free_kbytes 2>/dev/null || echo 'N/A')"
+print_config "vm.zone_reclaim_mode" "${VM_ZONE_RECLAIM_MODE}" "$(cat /proc/sys/vm/zone_reclaim_mode 2>/dev/null || echo 'N/A')"
+CONFIG_COUNT=$((CONFIG_COUNT + 9))
+
+# =============================================================================
+# 2. OS TUNING - FILE DESCRIPTORS (4 params)
+# =============================================================================
+print_category "2. OS TUNING - FILE DESCRIPTORS"
+
+print_config "fs.file-max" "${FS_FILE_MAX}" "$(cat /proc/sys/fs/file-max 2>/dev/null || echo 'N/A')"
+print_config "fs.aio-max-nr" "${FS_AIO_MAX_NR}" "$(cat /proc/sys/fs/aio-max-nr 2>/dev/null || echo 'N/A')"
+ACTUAL_NOFILE=$(ulimit -n 2>/dev/null || echo 'N/A')
+print_config "ulimit -n (nofile)" "${ULIMIT_NOFILE}" "${ACTUAL_NOFILE}"
+ACTUAL_NPROC=$(ulimit -u 2>/dev/null || echo 'N/A')
+print_config "ulimit -u (nproc)" "${ULIMIT_NPROC}" "${ACTUAL_NPROC}"
+CONFIG_COUNT=$((CONFIG_COUNT + 4))
+
+# =============================================================================
+# 3. OS TUNING - NETWORK/TCP (13 params)
+# =============================================================================
+print_category "3. OS TUNING - NETWORK/TCP"
+
+print_config "net.core.somaxconn" "${NET_CORE_SOMAXCONN}" "$(cat /proc/sys/net/core/somaxconn 2>/dev/null || echo 'N/A')"
+print_config "net.core.netdev_max_backlog" "${NET_CORE_NETDEV_MAX_BACKLOG}" "$(cat /proc/sys/net/core/netdev_max_backlog 2>/dev/null || echo 'N/A')"
+print_config "net.core.rmem_default" "${NET_CORE_RMEM_DEFAULT}" "$(cat /proc/sys/net/core/rmem_default 2>/dev/null || echo 'N/A')"
+print_config "net.core.rmem_max" "${NET_CORE_RMEM_MAX}" "$(cat /proc/sys/net/core/rmem_max 2>/dev/null || echo 'N/A')"
+print_config "net.core.wmem_default" "${NET_CORE_WMEM_DEFAULT}" "$(cat /proc/sys/net/core/wmem_default 2>/dev/null || echo 'N/A')"
+print_config "net.core.wmem_max" "${NET_CORE_WMEM_MAX}" "$(cat /proc/sys/net/core/wmem_max 2>/dev/null || echo 'N/A')"
+print_config "net.ipv4.tcp_rmem" "${NET_IPV4_TCP_RMEM}" "$(cat /proc/sys/net/ipv4/tcp_rmem 2>/dev/null | tr '\t' ' ' || echo 'N/A')"
+print_config "net.ipv4.tcp_wmem" "${NET_IPV4_TCP_WMEM}" "$(cat /proc/sys/net/ipv4/tcp_wmem 2>/dev/null | tr '\t' ' ' || echo 'N/A')"
+print_config "net.ipv4.tcp_max_syn_backlog" "${NET_IPV4_TCP_MAX_SYN_BACKLOG}" "$(cat /proc/sys/net/ipv4/tcp_max_syn_backlog 2>/dev/null || echo 'N/A')"
+print_config "net.ipv4.tcp_tw_reuse" "${NET_IPV4_TCP_TW_REUSE}" "$(cat /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null || echo 'N/A')"
+print_config "net.ipv4.tcp_fin_timeout" "${NET_IPV4_TCP_FIN_TIMEOUT}" "$(cat /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null || echo 'N/A')"
+CONFIG_COUNT=$((CONFIG_COUNT + 11))
+
+# =============================================================================
+# 4. OS TUNING - SCHEDULER (3 params)
+# =============================================================================
+print_category "4. OS TUNING - SCHEDULER"
+
+print_config "kernel.sched_autogroup_enabled" "${KERNEL_SCHED_AUTOGROUP_ENABLED}" "$(cat /proc/sys/kernel/sched_autogroup_enabled 2>/dev/null || echo 'N/A')"
+print_config "kernel.numa_balancing" "${KERNEL_NUMA_BALANCING}" "$(cat /proc/sys/kernel/numa_balancing 2>/dev/null || echo 'N/A')"
+print_config "kernel.sem" "${KERNEL_SEM}" "$(cat /proc/sys/kernel/sem 2>/dev/null | tr '\t' ' ' || echo 'N/A')"
+THP_ACTUAL=$(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null | grep -o '\[.*\]' | tr -d '[]' || echo 'N/A')
+print_config "transparent_hugepage" "never" "${THP_ACTUAL}"
+CONFIG_COUNT=$((CONFIG_COUNT + 4))
+
+# =============================================================================
+# 5. RAID CONFIG - DATA VOLUME (7 params)
+# =============================================================================
+print_category "5. RAID CONFIG - DATA VOLUME"
+
+print_config "data.mount" "${DATA_MOUNT}" "$(mount | grep ' /data ' | awk '{print $3}' || echo 'N/A')"
+print_config "data.disk_count" "${DATA_DISK_COUNT}" "${DATA_DISK_COUNT}"
+print_config "data.disk_size_gb" "${DATA_DISK_SIZE_GB}" "${DATA_DISK_SIZE_GB}"
+print_config "data.raid_level" "${DATA_RAID_LEVEL}" "$(cat /proc/mdstat 2>/dev/null | grep md0 | grep -o 'raid[0-9]*' || echo 'N/A')"
+print_config "data.raid_device" "${DATA_RAID_DEVICE}" "${DATA_RAID_DEVICE}"
+print_config "data.raid_chunk" "${DATA_RAID_CHUNK}" "$(mdadm --detail /dev/md0 2>/dev/null | grep 'Chunk Size' | awk '{print $4}' || echo 'N/A')"
+print_config "data.stripe_width" "${DATA_STRIPE_WIDTH}" "${DATA_STRIPE_WIDTH}"
+CONFIG_COUNT=$((CONFIG_COUNT + 7))
+
+# =============================================================================
+# 6. RAID CONFIG - WAL VOLUME (7 params)
+# =============================================================================
+print_category "6. RAID CONFIG - WAL VOLUME"
+
+print_config "wal.mount" "${WAL_MOUNT}" "$(mount | grep ' /wal ' | awk '{print $3}' || echo 'N/A')"
+print_config "wal.disk_count" "${WAL_DISK_COUNT}" "${WAL_DISK_COUNT}"
+print_config "wal.disk_size_gb" "${WAL_DISK_SIZE_GB}" "${WAL_DISK_SIZE_GB}"
+print_config "wal.raid_level" "${WAL_RAID_LEVEL}" "$(cat /proc/mdstat 2>/dev/null | grep md1 | grep -o 'raid[0-9]*' || echo 'N/A')"
+print_config "wal.raid_device" "${WAL_RAID_DEVICE}" "${WAL_RAID_DEVICE}"
+print_config "wal.raid_chunk" "${WAL_RAID_CHUNK}" "$(mdadm --detail /dev/md1 2>/dev/null | grep 'Chunk Size' | awk '{print $4}' || echo 'N/A')"
+print_config "wal.stripe_width" "${WAL_STRIPE_WIDTH}" "${WAL_STRIPE_WIDTH}"
+CONFIG_COUNT=$((CONFIG_COUNT + 7))
+
+# =============================================================================
+# 7. XFS OPTIONS (8 params)
+# =============================================================================
+print_category "7. XFS OPTIONS"
+
+print_config "fs_type" "${FS_TYPE}" "$(mount | grep ' /data ' | awk '{print $5}' || echo 'N/A')"
+print_config "xfs.data_sunit" "${XFS_DATA_SUNIT}" "${XFS_DATA_SUNIT}"
+print_config "xfs.wal_sunit" "${XFS_WAL_SUNIT}" "${XFS_WAL_SUNIT}"
+print_config "xfs.log_stripe_unit" "${XFS_LOG_STRIPE_UNIT}" "${XFS_LOG_STRIPE_UNIT}"
+print_config "xfs.data_agcount" "${XFS_DATA_AGCOUNT}" "$(xfs_info /data 2>/dev/null | grep agcount | awk -F= '{print $2}' | awk -F, '{print $1}' || echo 'N/A')"
+print_config "xfs.wal_agcount" "${XFS_WAL_AGCOUNT}" "$(xfs_info /wal 2>/dev/null | grep agcount | awk -F= '{print $2}' | awk -F, '{print $1}' || echo 'N/A')"
+print_config "xfs.mount_opts_data" "${XFS_MOUNT_OPTS_DATA:0:30}..." "$(mount | grep ' /data ' | grep -o '(.*)' | head -c 30 || echo 'N/A')..."
+print_config "xfs.mount_opts_wal" "${XFS_MOUNT_OPTS_WAL:0:30}..." "$(mount | grep ' /wal ' | grep -o '(.*)' | head -c 30 || echo 'N/A')..."
+CONFIG_COUNT=$((CONFIG_COUNT + 8))
+
+# =============================================================================
+# 8. BLOCK DEVICE TUNING - DATA (8 params)
+# =============================================================================
+print_category "8. BLOCK DEVICE TUNING - DATA (/dev/md0)"
+
+print_config "data.scheduler" "${DATA_SCHEDULER}" "$(cat /sys/block/md0/queue/scheduler 2>/dev/null | grep -o '\[.*\]' | tr -d '[]' || echo 'N/A')"
+print_config "data.rotational" "${DATA_ROTATIONAL}" "$(cat /sys/block/md0/queue/rotational 2>/dev/null || echo 'N/A')"
+print_config "data.read_ahead_kb" "${DATA_READ_AHEAD_KB}" "$(cat /sys/block/md0/queue/read_ahead_kb 2>/dev/null || echo 'N/A')"
+print_config "data.nr_requests" "${DATA_NR_REQUESTS}" "$(cat /sys/block/md0/queue/nr_requests 2>/dev/null || echo 'N/A')"
+print_config "data.max_sectors_kb" "${DATA_MAX_SECTORS_KB}" "$(cat /sys/block/md0/queue/max_sectors_kb 2>/dev/null || echo 'N/A')"
+print_config "data.rq_affinity" "${DATA_RQ_AFFINITY}" "$(cat /sys/block/md0/queue/rq_affinity 2>/dev/null || echo 'N/A')"
+print_config "data.add_random" "${DATA_ADD_RANDOM}" "$(cat /sys/block/md0/queue/add_random 2>/dev/null || echo 'N/A')"
+print_config "data.nomerges" "${DATA_NOMERGES}" "$(cat /sys/block/md0/queue/nomerges 2>/dev/null || echo 'N/A')"
+CONFIG_COUNT=$((CONFIG_COUNT + 8))
+
+# =============================================================================
+# 9. BLOCK DEVICE TUNING - WAL (8 params)
+# =============================================================================
+print_category "9. BLOCK DEVICE TUNING - WAL (/dev/md1)"
+
+print_config "wal.scheduler" "${WAL_SCHEDULER}" "$(cat /sys/block/md1/queue/scheduler 2>/dev/null | grep -o '\[.*\]' | tr -d '[]' || echo 'N/A')"
+print_config "wal.rotational" "${WAL_ROTATIONAL}" "$(cat /sys/block/md1/queue/rotational 2>/dev/null || echo 'N/A')"
+print_config "wal.read_ahead_kb" "${WAL_READ_AHEAD_KB}" "$(cat /sys/block/md1/queue/read_ahead_kb 2>/dev/null || echo 'N/A')"
+print_config "wal.nr_requests" "${WAL_NR_REQUESTS}" "$(cat /sys/block/md1/queue/nr_requests 2>/dev/null || echo 'N/A')"
+print_config "wal.max_sectors_kb" "${WAL_MAX_SECTORS_KB}" "$(cat /sys/block/md1/queue/max_sectors_kb 2>/dev/null || echo 'N/A')"
+print_config "wal.rq_affinity" "${WAL_RQ_AFFINITY}" "$(cat /sys/block/md1/queue/rq_affinity 2>/dev/null || echo 'N/A')"
+print_config "wal.add_random" "${WAL_ADD_RANDOM}" "$(cat /sys/block/md1/queue/add_random 2>/dev/null || echo 'N/A')"
+print_config "wal.nomerges" "${WAL_NOMERGES}" "$(cat /sys/block/md1/queue/nomerges 2>/dev/null || echo 'N/A')"
+CONFIG_COUNT=$((CONFIG_COUNT + 8))
+
+# =============================================================================
+# 10. MDADM TUNING (1 param)
+# =============================================================================
+print_category "10. MDADM TUNING"
+
+print_config "md.stripe_cache_size" "${MD_STRIPE_CACHE_SIZE}" "$(cat /sys/block/md0/md/stripe_cache_size 2>/dev/null || echo 'N/A')"
+CONFIG_COUNT=$((CONFIG_COUNT + 1))
+
+# =============================================================================
+# 11. POSTGRESQL - CONNECTION & MEMORY (5 params)
+# =============================================================================
+print_category "11. POSTGRESQL - CONNECTION & MEMORY"
+
+print_config "max_connections" "${PG_MAX_CONNECTIONS}" "$(sudo -u postgres psql -t -c 'SHOW max_connections;' 2>/dev/null | tr -d ' ')"
+print_config "shared_buffers" "${PG_SHARED_BUFFERS}" "$(sudo -u postgres psql -t -c 'SHOW shared_buffers;' 2>/dev/null | tr -d ' ')"
+print_config "work_mem" "${PG_WORK_MEM}" "$(sudo -u postgres psql -t -c 'SHOW work_mem;' 2>/dev/null | tr -d ' ')"
+print_config "maintenance_work_mem" "${PG_MAINTENANCE_WORK_MEM}" "$(sudo -u postgres psql -t -c 'SHOW maintenance_work_mem;' 2>/dev/null | tr -d ' ')"
+print_config "effective_cache_size" "${PG_EFFECTIVE_CACHE_SIZE}" "$(sudo -u postgres psql -t -c 'SHOW effective_cache_size;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 5))
+
+# =============================================================================
+# 12. POSTGRESQL - DISK I/O (3 params)
+# =============================================================================
+print_category "12. POSTGRESQL - DISK I/O"
+
+print_config "random_page_cost" "${PG_RANDOM_PAGE_COST}" "$(sudo -u postgres psql -t -c 'SHOW random_page_cost;' 2>/dev/null | tr -d ' ')"
+print_config "seq_page_cost" "${PG_SEQ_PAGE_COST}" "$(sudo -u postgres psql -t -c 'SHOW seq_page_cost;' 2>/dev/null | tr -d ' ')"
+print_config "effective_io_concurrency" "${PG_EFFECTIVE_IO_CONCURRENCY}" "$(sudo -u postgres psql -t -c 'SHOW effective_io_concurrency;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 3))
+
+# =============================================================================
+# 13. POSTGRESQL - WAL (4 params)
+# =============================================================================
+print_category "13. POSTGRESQL - WAL"
+
+print_config "wal_compression" "${PG_WAL_COMPRESSION}" "$(sudo -u postgres psql -t -c 'SHOW wal_compression;' 2>/dev/null | tr -d ' ')"
+print_config "wal_buffers" "${PG_WAL_BUFFERS}" "$(sudo -u postgres psql -t -c 'SHOW wal_buffers;' 2>/dev/null | tr -d ' ')"
+print_config "wal_writer_delay" "${PG_WAL_WRITER_DELAY}" "$(sudo -u postgres psql -t -c 'SHOW wal_writer_delay;' 2>/dev/null | tr -d ' ')"
+print_config "wal_writer_flush_after" "${PG_WAL_WRITER_FLUSH_AFTER}" "$(sudo -u postgres psql -t -c 'SHOW wal_writer_flush_after;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 4))
+
+# =============================================================================
+# 14. POSTGRESQL - CHECKPOINT (4 params)
+# =============================================================================
+print_category "14. POSTGRESQL - CHECKPOINT"
+
+print_config "max_wal_size" "${PG_MAX_WAL_SIZE}" "$(sudo -u postgres psql -t -c 'SHOW max_wal_size;' 2>/dev/null | tr -d ' ')"
+print_config "min_wal_size" "${PG_MIN_WAL_SIZE}" "$(sudo -u postgres psql -t -c 'SHOW min_wal_size;' 2>/dev/null | tr -d ' ')"
+print_config "checkpoint_timeout" "${PG_CHECKPOINT_TIMEOUT}" "$(sudo -u postgres psql -t -c 'SHOW checkpoint_timeout;' 2>/dev/null | tr -d ' ')"
+print_config "checkpoint_completion_target" "${PG_CHECKPOINT_COMPLETION_TARGET}" "$(sudo -u postgres psql -t -c 'SHOW checkpoint_completion_target;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 4))
+
+# =============================================================================
+# 15. POSTGRESQL - SYNC & GROUP COMMIT (3 params)
+# =============================================================================
+print_category "15. POSTGRESQL - SYNC & GROUP COMMIT"
+
+print_config "synchronous_commit" "${PG_SYNCHRONOUS_COMMIT}" "$(sudo -u postgres psql -t -c 'SHOW synchronous_commit;' 2>/dev/null | tr -d ' ')"
+print_config "commit_delay" "${PG_COMMIT_DELAY}" "$(sudo -u postgres psql -t -c 'SHOW commit_delay;' 2>/dev/null | tr -d ' ')"
+print_config "commit_siblings" "${PG_COMMIT_SIBLINGS}" "$(sudo -u postgres psql -t -c 'SHOW commit_siblings;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 3))
+
+# =============================================================================
+# 16. POSTGRESQL - BACKGROUND WRITER (3 params)
+# =============================================================================
+print_category "16. POSTGRESQL - BACKGROUND WRITER"
+
+print_config "bgwriter_delay" "${PG_BGWRITER_DELAY}" "$(sudo -u postgres psql -t -c 'SHOW bgwriter_delay;' 2>/dev/null | tr -d ' ')"
+print_config "bgwriter_lru_maxpages" "${PG_BGWRITER_LRU_MAXPAGES}" "$(sudo -u postgres psql -t -c 'SHOW bgwriter_lru_maxpages;' 2>/dev/null | tr -d ' ')"
+print_config "bgwriter_lru_multiplier" "${PG_BGWRITER_LRU_MULTIPLIER}" "$(sudo -u postgres psql -t -c 'SHOW bgwriter_lru_multiplier;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 3))
+
+# =============================================================================
+# 17. POSTGRESQL - AUTOVACUUM (6 params)
+# =============================================================================
+print_category "17. POSTGRESQL - AUTOVACUUM"
+
+print_config "autovacuum" "${PG_AUTOVACUUM}" "$(sudo -u postgres psql -t -c 'SHOW autovacuum;' 2>/dev/null | tr -d ' ')"
+print_config "autovacuum_max_workers" "${PG_AUTOVACUUM_MAX_WORKERS}" "$(sudo -u postgres psql -t -c 'SHOW autovacuum_max_workers;' 2>/dev/null | tr -d ' ')"
+print_config "autovacuum_naptime" "${PG_AUTOVACUUM_NAPTIME}" "$(sudo -u postgres psql -t -c 'SHOW autovacuum_naptime;' 2>/dev/null | tr -d ' ')"
+print_config "autovacuum_vacuum_scale_factor" "${PG_AUTOVACUUM_VACUUM_SCALE_FACTOR}" "$(sudo -u postgres psql -t -c 'SHOW autovacuum_vacuum_scale_factor;' 2>/dev/null | tr -d ' ')"
+print_config "autovacuum_analyze_scale_factor" "${PG_AUTOVACUUM_ANALYZE_SCALE_FACTOR}" "$(sudo -u postgres psql -t -c 'SHOW autovacuum_analyze_scale_factor;' 2>/dev/null | tr -d ' ')"
+print_config "autovacuum_vacuum_cost_limit" "${PG_AUTOVACUUM_VACUUM_COST_LIMIT}" "$(sudo -u postgres psql -t -c 'SHOW autovacuum_vacuum_cost_limit;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 6))
+
+# =============================================================================
+# 18. POSTGRESQL - PARALLEL QUERY (3 params)
+# =============================================================================
+print_category "18. POSTGRESQL - PARALLEL QUERY"
+
+print_config "max_worker_processes" "${PG_MAX_WORKER_PROCESSES}" "$(sudo -u postgres psql -t -c 'SHOW max_worker_processes;' 2>/dev/null | tr -d ' ')"
+print_config "max_parallel_workers_per_gather" "${PG_MAX_PARALLEL_WORKERS_PER_GATHER}" "$(sudo -u postgres psql -t -c 'SHOW max_parallel_workers_per_gather;' 2>/dev/null | tr -d ' ')"
+print_config "max_parallel_workers" "${PG_MAX_PARALLEL_WORKERS}" "$(sudo -u postgres psql -t -c 'SHOW max_parallel_workers;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 3))
+
+# =============================================================================
+# 19. POSTGRESQL - LOGGING (4 params)
+# =============================================================================
+print_category "19. POSTGRESQL - LOGGING"
+
+print_config "log_min_duration_statement" "${PG_LOG_MIN_DURATION_STATEMENT}" "$(sudo -u postgres psql -t -c 'SHOW log_min_duration_statement;' 2>/dev/null | tr -d ' ')"
+print_config "log_temp_files" "${PG_LOG_TEMP_FILES}" "$(sudo -u postgres psql -t -c 'SHOW log_temp_files;' 2>/dev/null | tr -d ' ')"
+print_config "log_checkpoints" "${PG_LOG_CHECKPOINTS}" "$(sudo -u postgres psql -t -c 'SHOW log_checkpoints;' 2>/dev/null | tr -d ' ')"
+print_config "log_lock_waits" "${PG_LOG_LOCK_WAITS}" "$(sudo -u postgres psql -t -c 'SHOW log_lock_waits;' 2>/dev/null | tr -d ' ')"
+CONFIG_COUNT=$((CONFIG_COUNT + 4))
+
+# =============================================================================
+# 20. POSTGRESQL - PATHS & LISTEN (4 params)
+# =============================================================================
+print_category "20. POSTGRESQL - PATHS & LISTEN"
+
+print_config "listen_addresses" "${PG_LISTEN_ADDRESSES}" "$(sudo -u postgres psql -t -c 'SHOW listen_addresses;' 2>/dev/null | tr -d ' ')"
+print_config "port" "${PG_PORT}" "$(sudo -u postgres psql -t -c 'SHOW port;' 2>/dev/null | tr -d ' ')"
+print_config "data_directory" "${PG_DATA_DIR}" "$(sudo -u postgres psql -t -c 'SHOW data_directory;' 2>/dev/null | tr -d ' ')"
+print_config "wal_directory" "${PG_WAL_DIR}" "$(readlink -f ${PG_DATA_DIR}/pg_wal 2>/dev/null || echo 'N/A')"
+CONFIG_COUNT=$((CONFIG_COUNT + 4))
+
+# =============================================================================
+# 21. BENCHMARK CONFIG (5 params)
+# =============================================================================
+print_category "21. BENCHMARK CONFIG"
+
+print_config "fio_runtime" "${FIO_RUNTIME}" "${FIO_RUNTIME}"
+print_config "fio_size" "${FIO_SIZE}" "${FIO_SIZE}"
+print_config "fio_numjobs" "${FIO_NUMJOBS}" "${FIO_NUMJOBS}"
+print_config "pgbench_scale" "${PGBENCH_SCALE}" "${PGBENCH_SCALE}"
+print_config "pgbench_duration" "${PGBENCH_DURATION}" "${PGBENCH_DURATION}"
+CONFIG_COUNT=$((CONFIG_COUNT + 5))
+
+echo ""
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}  TOTAL: ${CONFIG_COUNT} configuration parameters${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+# -----------------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------------
 echo ""
@@ -516,21 +819,11 @@ echo "  - Data: ${DATA_DIR}"
 echo "  - WAL:  ${WAL_DIR}"
 echo "  - pgbench: ${PGBENCH_DB} (scale ${PGBENCH_SCALE})"
 echo ""
-echo -e "${YELLOW}IMPORTANT: Config files are in ${DATA_DIR}, NOT /etc/postgresql/${NC}"
-echo "  - postgresql.conf: ${DATA_DIR}/postgresql.conf"
-echo "  - pg_hba.conf:     ${DATA_DIR}/pg_hba.conf"
-echo ""
-echo "Authentication (SECURE - all network connections require password):"
-echo "  - Local (peer): no password"
-echo "  - VPC/Network (scram-sha-256): password = '${PG_PASSWORD}'"
-echo ""
 echo "Configuration source: ${CONFIG_FILE}"
+echo "Total parameters: ${CONFIG_COUNT}"
 echo ""
 echo "Quick commands:"
 echo "  sudo -u postgres psql                                      # Connect locally"
 echo "  PGPASSWORD=${PG_PASSWORD} psql -h <IP> -U postgres         # Connect remotely"
-echo "  sudo systemctl status postgresql                           # Check status"
-echo ""
-echo "Benchmark command (10K TPS test):"
-echo "  sudo -u postgres pgbench -c 100 -j 8 -T 60 -P 5 ${PGBENCH_DB}"
+echo "  sudo -u postgres pgbench -c 100 -j 8 -T 60 -P 5 ${PGBENCH_DB}  # Benchmark"
 echo ""
