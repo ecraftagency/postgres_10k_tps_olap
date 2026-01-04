@@ -1,12 +1,12 @@
 # =============================================================================
-# Infrastructure Topology: r8g.2xlarge.15.10.8disk.raid10
+# Infrastructure Topology: c8gb.8xlarge.66.50.8disk.raid10
 # =============================================================================
 # This file documents the full infrastructure topology for this hardware context.
 # Used for documentation and potentially for automated provisioning.
 # =============================================================================
 
-name: r8g.2xlarge.15.10.8disk.raid10
-description: "PostgreSQL on r8g.2xlarge (memory optimized) with 8-disk RAID10, PgCat proxy"
+name: c8gb.8xlarge.66.50.8disk.raid10
+description: "PostgreSQL on c8gb.8xlarge (compute + block optimized) with 8-disk RAID10, PgCat proxy"
 
 # -----------------------------------------------------------------------------
 # Components
@@ -15,12 +15,12 @@ components:
   db:
     enabled: true
     count: 1
-    instance_type: r8g.2xlarge
+    instance_type: c8gb.8xlarge
     specs:
-      vcpu: 8
+      vcpu: 32
       ram_gb: 64
-      network_gbps: 15
-      ebs_gbps: 10
+      network_gbps: 66
+      ebs_gbps: 50
     storage:
       data:
         disk_count: 8
@@ -51,27 +51,27 @@ components:
     type: null  # risingwave, clickhouse, etc.
 
 # -----------------------------------------------------------------------------
-# Benchmark Results (to be filled after benchmarking)
+# Benchmark Results
 # -----------------------------------------------------------------------------
 benchmark:
   workload: pgbench_tpcb
-  scale: 1374
+  scale: 1250
   clients: 100
   results:
-    tps_avg: null  # TBD
-    tps_peak: null
-    tps_min: null
-    latency_avg_ms: null
+    tps_avg: 21199
+    tps_peak: 34856
+    tps_min: 16570
+    latency_avg_ms: 4.69
 
 # -----------------------------------------------------------------------------
 # Cost Estimate (us-west-2, monthly)
 # -----------------------------------------------------------------------------
 cost:
-  db_ondemand: 387.79  # r8g.2xlarge
-  db_spot: 116.34
+  db_ondemand: 832.32   # c8gb.8xlarge
+  db_spot: 249.70
   ebs_data: 25.60
   ebs_wal: 15.36
   proxy_ondemand: 208.08
   proxy_spot: 62.64
-  total_ondemand: 636.83
-  total_spot: 219.94
+  total_ondemand: 1081.36
+  total_spot: 353.30
