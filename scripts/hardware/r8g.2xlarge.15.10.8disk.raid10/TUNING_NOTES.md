@@ -82,14 +82,88 @@ pgbench -j 8 -c 100
 
 ---
 
+### Run 2: Warm Cache + Optimized Config
+**Date**: 2026-01-04 09:06
+**Report**: `results/postgres_tpcb_report_20260104-090604.md`
+
+**Changes from Run 1**:
+- Warm cache (dataset fully loaded)
+- Same Scenario C config
+
+**Results**:
+| Metric | Value | vs Run 1 |
+|--------|-------|----------|
+| TPS avg | **19,474** | +9.1% |
+| TPS peak | 19,723 | |
+| TPS min | 19,076 | |
+| Latency | 5.15 ms | -6.4% |
+
+**Timeline**:
+```
+ 5s: 19,076 tps
+10s: 19,382 tps
+15s: 19,389 tps
+20s: 19,425 tps
+25s: 19,494 tps
+30s: 19,473 tps
+35s: 19,551 tps
+40s: 19,467 tps
+45s: 19,406 tps
+50s: 19,513 tps
+55s: 19,723 tps (peak)
+60s: 19,717 tps
+```
+
+**pg_deep_stats**:
+```
+Time      HitRatio  DiskRead  XactCommit  CkptReq  BufBackend  WalBytes
+09:06:04  99.84%    0         4           0        0           5.46GB
+09:06:09  99.11%    29        14          0        0           5.51GB
+...
+09:07:00  99.92%    29        134         0        0           6.38GB
+```
+
+**Key Insights**:
+1. **HitRatio 99.9%** - Dataset hoàn toàn trong RAM
+2. **DiskRead = 29** - Gần như 0 disk reads
+3. **CkptReq = 0** - Không có checkpoint forced
+4. **BufBackend = 0** - BGWriter đang làm tốt
+5. **WAL ~920MB/60s** (~15MB/s)
+
+---
+
+### Run 3: Test commit_delay=50 (Group Commit)
+**Date**: 2026-01-04 09:01
+**Report**: `results/postgres_tpcb_report_20260104-090102.md`
+
+**Changes**:
+```ini
+commit_delay = 50      # Was 0
+commit_siblings = 10   # Was 5
+wal_writer_flush_after = 2MB  # Was 1MB
+```
+
+**Results**:
+| Metric | Value | vs Run 2 |
+|--------|-------|----------|
+| TPS avg | 16,456 | **-15.5%** ❌ |
+| Latency | 6.07 ms | **+17.9%** ❌ |
+
+**Conclusion**: Group commit batching **không hiệu quả** trên EBS gp3.
+- EBS latency đã thấp (~2-3ms)
+- Chờ thêm 50µs để gom transactions tạo overhead
+- **Giữ commit_delay=0** cho production
+
+---
+
 ## Price/Performance Analysis
 
 | Instance | TPS | Price/mo | TPS/$ | Relative |
 |----------|-----|----------|-------|----------|
 | c8gb.8xlarge | 40,752 | $833 | 48.9 | 1.0x |
-| **r8g.2xlarge** | 17,857 | $290 | **61.6** | **1.26x** |
+| **r8g.2xlarge** | 19,474 | $290 | **67.2** | **1.37x** |
 
-**Conclusion**: r8g.2xlarge delivers **26% better value** per dollar!
+**Conclusion**: r8g.2xlarge delivers **37% better value** per dollar!
 
 ---
 
@@ -127,7 +201,7 @@ bgwriter_lru_maxpages = 1000
 bgwriter_lru_multiplier = 4.0
 ```
 
-**Best Results**: 17,857 TPS avg, 5.5ms latency
+**Best Results**: 19,474 TPS avg, 5.15ms latency (Run 2)
 
 ---
 

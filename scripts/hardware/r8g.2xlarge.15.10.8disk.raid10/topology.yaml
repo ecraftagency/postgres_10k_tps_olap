@@ -2,7 +2,7 @@
 # Infrastructure Topology: r8g.2xlarge.15.10.8disk.raid10
 # =============================================================================
 # Price/Performance optimized configuration
-# 26% better TPS/$ compared to c8gb.8xlarge
+# 37% better TPS/$ compared to c8gb.8xlarge
 # =============================================================================
 
 name: r8g.2xlarge.15.10.8disk.raid10
@@ -55,19 +55,20 @@ benchmark:
   threads: 8
   duration: 60
   results:
-    tps_avg: 17857
-    tps_peak: 18824
-    tps_min: 16458
-    latency_avg_ms: 5.5
+    tps_avg: 19474
+    tps_peak: 19723
+    tps_min: 19076
+    latency_avg_ms: 5.15
     io_cliff: false
+    cache_hit_ratio: 99.9
 
 # -----------------------------------------------------------------------------
 # Price/Performance Analysis
 # -----------------------------------------------------------------------------
 price_performance:
-  tps_per_dollar: 61.6
-  vs_c8gb_8xlarge: "+26% better value"
-  recommended_for: "workloads < 15K TPS"
+  tps_per_dollar: 67.2
+  vs_c8gb_8xlarge: "+37% better value"
+  recommended_for: "workloads < 20K TPS"
 
 # -----------------------------------------------------------------------------
 # Cost Estimate (us-west-2, monthly)
