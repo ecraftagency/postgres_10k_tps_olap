@@ -34,6 +34,14 @@ get_instance_specs() {
         c8g.16xlarge) echo "64:128:30:20" ;;
         c8g.24xlarge) echo "96:192:40:30" ;;
         c8g.48xlarge) echo "192:384:50:40" ;;
+        # C8gb - Compute optimized + Block storage (Graviton4, higher EBS BW)
+        c8gb.xlarge)   echo "4:8:33:15" ;;
+        c8gb.2xlarge)  echo "8:16:33:15" ;;
+        c8gb.4xlarge)  echo "16:32:33:15" ;;
+        c8gb.8xlarge)  echo "32:64:33:15" ;;
+        c8gb.12xlarge) echo "48:96:40:22" ;;
+        c8gb.16xlarge) echo "64:128:50:30" ;;
+        c8gb.24xlarge) echo "96:192:50:40" ;;
         # R8g - Memory optimized (Graviton4)
         r8g.medium)   echo "1:8:12:10" ;;
         r8g.large)    echo "2:16:12:10" ;;
@@ -69,6 +77,7 @@ usage() {
     echo ""
     echo "Supported instance types:"
     echo "  c8g.{medium,large,xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge,48xlarge}"
+    echo "  c8gb.{xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge}  (block optimized)"
     echo "  r8g.{medium,large,xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge}"
     echo "  m8g.{medium,large,xlarge,2xlarge,4xlarge,8xlarge,12xlarge,16xlarge,24xlarge}"
     exit 1

@@ -1,14 +1,14 @@
-# Tuning Notes: c8g.2xlarge.15.10.8disk.raid10
+# Tuning Notes: c8gb.2xlarge.33.15.8disk.raid10
 
 ## Hardware Specs
 
 | Component | Spec |
 |-----------|------|
-| Instance | c8g.2xlarge (Graviton4) |
+| Instance | c8gb.2xlarge (Graviton4, Block optimized) |
 | vCPU | 8 |
 | RAM | 16 GB |
-| Network | 15 Gbps |
-| EBS Bandwidth | 10 Gbps |
+| Network | 33 Gbps |
+| EBS Bandwidth | 15 Gbps |
 | DATA Volume | 8x 50GB gp3 RAID10 (200GB usable) |
 | WAL Volume | 8x 30GB gp3 RAID10 (120GB usable) |
 

@@ -1,12 +1,12 @@
 # =============================================================================
-# Infrastructure Topology: c8g.2xlarge.15.10.8disk.raid10
+# Infrastructure Topology: c8gb.2xlarge.33.15.8disk.raid10
 # =============================================================================
 # This file documents the full infrastructure topology for this hardware context.
 # Used for documentation and potentially for automated provisioning.
 # =============================================================================
 
-name: c8g.2xlarge.15.10.8disk.raid10
-description: "PostgreSQL on c8g.2xlarge with 8-disk RAID10, PgCat proxy"
+name: c8gb.2xlarge.33.15.8disk.raid10
+description: "PostgreSQL on c8gb.2xlarge (block optimized) with 8-disk RAID10, PgCat proxy"
 
 # -----------------------------------------------------------------------------
 # Components
@@ -15,12 +15,12 @@ components:
   db:
     enabled: true
     count: 1
-    instance_type: c8g.2xlarge
+    instance_type: c8gb.2xlarge
     specs:
       vcpu: 8
       ram_gb: 16
-      network_gbps: 15
-      ebs_gbps: 10
+      network_gbps: 33
+      ebs_gbps: 15
     storage:
       data:
         disk_count: 8
@@ -37,7 +37,7 @@ components:
   proxy:
     enabled: true
     count: 1
-    instance_type: c8g.2xlarge
+    instance_type: c8g.2xlarge  # proxy doesn't need block optimized
     software: pgcat
     version: "1.3.0"
     config: proxy/pgcat.toml
