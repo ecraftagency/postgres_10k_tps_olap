@@ -35,21 +35,21 @@ if [ ! -f "$PG_HBA" ]; then
 fi
 
 # =============================================================================
-# Check if VPC trust rule already exists
+# Check if VPC scram-sha-256 rule already exists
 # =============================================================================
-if grep -q "host.*all.*all.*${PROXY_IP}.*trust" "$PG_HBA" 2>/dev/null; then
-    echo -e "${GREEN}VPC trust rule already exists for ${PROXY_IP}${NC}"
+if grep -q "host.*all.*all.*${PROXY_IP}.*scram-sha-256" "$PG_HBA" 2>/dev/null; then
+    echo -e "${GREEN}VPC auth rule already exists for ${PROXY_IP}${NC}"
 else
-    echo -e "${YELLOW}Adding VPC trust rule for ${PROXY_IP}...${NC}"
+    echo -e "${YELLOW}Adding VPC auth rule for ${PROXY_IP}...${NC}"
 
     # Backup pg_hba.conf
     sudo cp "$PG_HBA" "${PG_HBA}.backup.$(date +%Y%m%d_%H%M%S)"
 
-    # Add trust rule for VPC connections
-    echo "# PgCat proxy - VPC trust auth" | sudo tee -a "$PG_HBA" > /dev/null
-    echo "host    all    all    ${PROXY_IP}    trust" | sudo tee -a "$PG_HBA" > /dev/null
+    # Add scram-sha-256 rule for VPC connections (NEVER use trust!)
+    echo "# PgCat proxy - VPC scram-sha-256 auth" | sudo tee -a "$PG_HBA" > /dev/null
+    echo "host    all    all    ${PROXY_IP}    scram-sha-256" | sudo tee -a "$PG_HBA" > /dev/null
 
-    echo -e "${GREEN}Added trust rule to pg_hba.conf${NC}"
+    echo -e "${GREEN}Added scram-sha-256 rule to pg_hba.conf${NC}"
 fi
 
 # =============================================================================
@@ -74,4 +74,5 @@ fi
 
 echo ""
 echo -e "${GREEN}=== DB configured for proxy connections ===${NC}"
-echo "Connections from ${PROXY_IP} will use trust authentication"
+echo "Connections from ${PROXY_IP} require password (scram-sha-256)"
+echo "Ensure postgres password is set: ALTER USER postgres PASSWORD 'postgres';"

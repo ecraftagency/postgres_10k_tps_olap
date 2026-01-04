@@ -226,8 +226,8 @@ else
 fi
 
 # pg_hba.conf
-# IMPORTANT: VPC subnet uses 'trust' for PgCat/internal connections
-# External connections use scram-sha-256
+# SECURITY: ALL network connections require password (scram-sha-256)
+# Never use 'trust' for VPC - if any machine is compromised, attacker gets full DB access
 EXPECTED_HBA="# TYPE  DATABASE        USER            ADDRESS                 METHOD
 # Local connections
 local   all             postgres                                peer
@@ -235,10 +235,8 @@ local   all             all                                     peer
 # Localhost
 host    all             all             127.0.0.1/32            scram-sha-256
 host    all             all             ::1/128                 scram-sha-256
-# VPC internal (PgCat, Replicas) - trust for low latency
-host    all             all             10.0.0.0/8              trust
-# External connections - password required
-host    all             all             0.0.0.0/0               scram-sha-256"
+# VPC internal (PgCat, Replicas) - REQUIRE PASSWORD
+host    all             all             10.0.0.0/16             scram-sha-256"
 
 CURRENT_HBA=""
 if [ -f "${DATA_DIR}/pg_hba.conf" ]; then
@@ -331,8 +329,8 @@ fi
 echo ""
 echo "=== Step 6b: Setting postgres user password ==="
 
-# Default password for benchmark - change in production!
-PG_PASSWORD="${PG_PASSWORD:-benchmark}"
+# Default password - required for PgCat and all network connections
+PG_PASSWORD="${PG_PASSWORD:-postgres}"
 
 # Check if password already set by trying to connect with it
 if PGPASSWORD="${PG_PASSWORD}" psql -h 127.0.0.1 -U postgres -c "SELECT 1;" &>/dev/null; then
@@ -340,7 +338,7 @@ if PGPASSWORD="${PG_PASSWORD}" psql -h 127.0.0.1 -U postgres -c "SELECT 1;" &>/d
 else
     log_info "Setting postgres user password..."
     sudo -u postgres psql -c "ALTER USER postgres PASSWORD '${PG_PASSWORD}';"
-    log_ok "postgres password set (default: benchmark)"
+    log_ok "postgres password set"
 fi
 
 # -----------------------------------------------------------------------------
@@ -529,9 +527,9 @@ echo -e "${YELLOW}IMPORTANT: Config files are in ${DATA_DIR}, NOT /etc/postgresq
 echo "  - postgresql.conf: ${DATA_DIR}/postgresql.conf"
 echo "  - pg_hba.conf:     ${DATA_DIR}/pg_hba.conf"
 echo ""
-echo "Authentication:"
-echo "  - VPC internal (10.0.0.0/8): trust (no password)"
-echo "  - External/PgCat: password = '${PG_PASSWORD}'"
+echo "Authentication (SECURE - all network connections require password):"
+echo "  - Local (peer): no password"
+echo "  - VPC/Network (scram-sha-256): password = '${PG_PASSWORD}'"
 echo ""
 echo "Configuration source: ${CONFIG_FILE}"
 echo ""

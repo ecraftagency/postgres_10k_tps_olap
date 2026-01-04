@@ -18,7 +18,7 @@ variable "proxy_enabled" {
 
 resource "aws_spot_instance_request" "proxy" {
   count                  = var.proxy_enabled ? 1 : 0
-  ami                    = var.ami
+  ami                    = var.proxy_ami
   instance_type          = var.proxy_instance_type
   spot_price             = "0.15"
   wait_for_fulfillment   = true

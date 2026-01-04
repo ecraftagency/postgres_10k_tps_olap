@@ -16,7 +16,12 @@ variable "ami" {
 }
 
 variable "db_ami" {
-  description = "Pre-configured PostgreSQL AMI with data at /data/postgres (restore from snapshot)"
+  description = "Pre-configured PostgreSQL AMI with data at /data/postgresql (restore from snapshot)"
+  type        = string
+}
+
+variable "proxy_ami" {
+  description = "Pre-configured PgCat proxy AMI"
   type        = string
 }
 

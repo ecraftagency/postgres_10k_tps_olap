@@ -22,8 +22,8 @@
 ## AMI Configuration
 | Component | AMI ID | Description |
 |-----------|--------|-------------|
-| DB | `ami-0c84db895917f789c` | PostgreSQL 16 + 16 EBS volumes (RAID10) |
-| Proxy | `ami-012798e88aebdba5c` | Ubuntu 24.04 ARM64 |
+| DB | `ami-0266f4b9e2c1841fb` | PostgreSQL 16 + 16 EBS volumes (RAID10) + configured |
+| Proxy | `ami-01efdecff661a215d` | PgCat 1.3.0 pre-installed |
 
 **IMPORTANT**: DB AMI includes all EBS volumes from snapshots. Do NOT create separate EBS volumes in terraform.
 
@@ -79,8 +79,9 @@ terraform apply
 
 Required variables in `terraform.tfvars`:
 ```hcl
-key_name = "dbdeepdive-key"
-db_ami   = "ami-0c84db895917f789c"
+key_name  = "dbdeepdive-key"
+db_ami    = "ami-0266f4b9e2c1841fb"
+proxy_ami = "ami-01efdecff661a215d"
 ```
 
 ### Step 2: Wait for DB Recovery
@@ -110,57 +111,16 @@ EOF
 sudo -u postgres psql -c 'SELECT pg_reload_conf();'
 ```
 
-### Step 4: Install PgCat on Proxy
+### Step 4: Configure PgCat on Proxy
+Proxy AMI has PgCat pre-installed. Just update the DB IP in config:
 ```bash
-# Copy scripts to proxy
-scp -i ~/.ssh/id_rsa -r scripts/pgcat ubuntu@<PROXY_PUBLIC_IP>:/tmp/
-
-# SSH to proxy and install
 ssh -i ~/.ssh/id_rsa ubuntu@<PROXY_PUBLIC_IP>
 
-# Write config directly (install.sh copies wrong default config)
-sudo mkdir -p /etc/pgcat
-sudo tee /etc/pgcat/pgcat.toml > /dev/null << 'EOF'
-[general]
-host = "0.0.0.0"
-port = 5432
-admin_username = "admin"
-admin_password = "admin_secure"
-worker_threads = 8
-connect_timeout = 5000
-idle_timeout = 60000
-prometheus_exporter_port = 9090
-log_client_connections = false
-log_client_disconnections = false
-auth_type = "trust"
+# Update DB IP in pgcat config
+sudo sed -i 's/\["10\.0\.[0-9]*\.[0-9]*"/["<DB_PRIVATE_IP>"/' /etc/pgcat/pgcat.toml
 
-[pools.pgbench]
-pool_mode = "transaction"
-default_role = "primary"
-query_parser_enabled = true
-primary_reads_enabled = true
-pool_size = 250
-min_pool_size = 10
-load_balancing_mode = "random"
-
-[pools.pgbench.users.0]
-username = "postgres"
-password = "postgres"
-pool_size = 250
-
-[pools.pgbench.shards.0]
-database = "pgbench"
-servers = [
-    ["<DB_PRIVATE_IP>", 5432, "primary"]
-]
-EOF
-
-# Run install script (builds pgcat binary)
-chmod +x /tmp/pgcat/install.sh
-/tmp/pgcat/install.sh <DB_PRIVATE_IP>
-
-# Start service
-sudo systemctl enable --now pgcat
+# Restart service
+sudo systemctl restart pgcat
 sudo systemctl status pgcat
 ```
 
