@@ -103,7 +103,56 @@ ALTER SYSTEM SET max_parallel_workers_per_gather = 8;
 
 ---
 
-## Current Best Config
+### Run 3: Scenario B (shared_buffers = 20GB)
+**Date**: 2026-01-04 07:52
+**Report**: `results/postgres_tpcb_report_20260104-075211.md`
+
+**Config changes**:
+```sql
+ALTER SYSTEM SET shared_buffers = '20GB';
+ALTER SYSTEM SET bgwriter_lru_maxpages = 1250;  -- Scale for 25% more buffers
+-- Restart required
+```
+
+**Results**:
+| Metric | Scenario A | Scenario B | Change |
+|--------|------------|------------|--------|
+| **TPS avg** | 24,156 | **31,532** | **+31%** |
+| TPS peak | 31,093 | **33,565** | +8% |
+| TPS min | 17,022 | **28,743** | +69% |
+| **Latency** | 4.13 ms | **~3.0 ms** | **-27%** |
+
+**Timeline** (NO I/O CLIFF! Continuously climbing):
+```
+ 5s: 28,743 tps
+10s: 29,699 tps
+15s: 30,229 tps
+20s: 30,522 tps
+25s: 31,014 tps
+30s: 31,443 tps
+35s: 31,786 tps
+40s: 32,225 tps
+45s: 32,620 tps
+50s: 33,006 tps
+55s: 33,319 tps
+60s: 33,565 tps  ← Still climbing!
+```
+
+**Observations**:
+1. **I/O CLIFF ELIMINATED**: No drop throughout 60s test
+2. **Continuous improvement**: TPS climbs as caches warm up
+3. **Dataset fits in buffer**: 20GB shared_buffers matches ~20GB pgbench data
+4. **Minimal variance**: stddev dropped from 3-5ms to 0.5-0.6ms
+
+**Why it works**:
+- pgbench scale=1250 ≈ 20GB data
+- shared_buffers = 20GB = entire dataset cached
+- No disk reads = no read/write contention
+- bgwriter only writes, no eviction pressure
+
+---
+
+## Current Best Config (Scenario B)
 
 ```ini
 # Parallel Query (fixed for 32 vCPU)
@@ -111,20 +160,22 @@ max_worker_processes = 32
 max_parallel_workers = 32
 max_parallel_workers_per_gather = 8
 
-# Memory (inherited)
-shared_buffers = 16GB
+# Memory (optimized for dataset)
+shared_buffers = 20GB          # Match dataset size!
 effective_cache_size = 45GB
 work_mem = 53MB
 
-# Background Writer (inherited)
+# Background Writer (scaled for 20GB)
 bgwriter_delay = 10ms
-bgwriter_lru_maxpages = 1000
+bgwriter_lru_maxpages = 1250   # 10MB/round
 bgwriter_lru_multiplier = 10.0
 
 # Group Commit (inherited)
 commit_delay = 50
 commit_siblings = 10
 ```
+
+**Best Results**: 31,532 TPS avg, 3.0ms latency, NO I/O cliff
 
 ## OS Tuning Status
 
@@ -138,9 +189,9 @@ vm.dirty_background_ratio = 5  # Should be 1
 
 | Scenario | Change | Hypothesis |
 |----------|--------|------------|
-| **B** | shared_buffers = 20GB | Match dataset size, reduce I/O |
-| **C** | shared_buffers = 24GB | Dataset + working set cached |
-| **OS** | Apply dirty_ratio tuning | Reduce I/O cliff severity |
+| ~~B~~ | ~~shared_buffers = 20GB~~ | ✅ **DONE** - I/O cliff eliminated! |
+| **C** | shared_buffers = 24GB | Test if extra headroom helps |
+| **OS** | Apply dirty_ratio tuning | May not be needed now (no cliff) |
 
 ## References
 
