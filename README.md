@@ -184,10 +184,39 @@ N_batch = TPS × T_sync / 1000 = 11,469 × 1.858 / 1000 = 21
 
 See [MATH.MD](docs/MATH.MD) for complete mathematical derivations.
 
+## Hardware Context System
+
+Configuration is organized by **hardware context** - enabling benchmarks across different hardware configurations.
+
+### Parameter Classification
+
+| Parameter Type | Example | Source |
+|---------------|---------|--------|
+| **Calculated** | `shared_buffers = 25% RAM` | Hardware specs |
+| **Calculated** | `max_parallel_workers = vCPU` | Hardware specs |
+| **Calculated** | `effective_io_concurrency` | RAID disk count |
+| **Experience-tuned** | `bgwriter_delay = 10ms` | Benchmarking |
+| **Experience-tuned** | `commit_delay = 50` | Benchmarking |
+| **Experience-tuned** | `vm.dirty_background_ratio = 1` | I/O cliff analysis |
+
+### Naming Convention
+```
+<instance_type>.<net_gbps>.<ebs_gbps>.<disk_count>disk.<raid_level>
+```
+Example: `c8gb.2xlarge.33.25.8disk.raid10`
+
+### Generate Config for New Hardware
+```bash
+cd scripts
+./hardware/generate-config.sh r8g.4xlarge 16 8 raid10
+# Creates: hardware/r8g.4xlarge.15.10.16disk.raid10/config.env
+```
+
 ## Project Structure
 
 ```
 .
+├── INFRA.md                    # Infrastructure configuration
 ├── docs/
 │   ├── MATH.MD                 # Mathematical formulas
 │   ├── SYSTEM_CONFIG.MD        # OS/disk configuration
@@ -195,16 +224,25 @@ See [MATH.MD](docs/MATH.MD) for complete mathematical derivations.
 │   ├── POSTGRES_BENCHMARK.MD   # Case study
 │   └── DISK_BENCHMARK.MD       # FIO benchmark guide
 ├── scripts/
+│   ├── hardware/               # Hardware contexts
+│   │   ├── _template/          # Config template
+│   │   ├── generate-config.sh  # Config generator
+│   │   └── c8gb.2xlarge.33.25.8disk.raid10/
+│   │       ├── config.env      # Tuning parameters
+│   │       ├── proxy/          # PgCat config
+│   │       ├── topology.yaml   # Infrastructure spec
+│   │       └── TUNING_NOTES.md # Tuning rationale
+│   ├── load-config.sh          # Config loader
 │   ├── 01-os-tuning.sh         # sysctl, limits
 │   ├── 02-raid-setup.sh        # mdadm RAID10
 │   ├── 03-disk-tuning.sh       # XFS, read_ahead
 │   ├── 05-db-install.sh        # PostgreSQL 16
 │   ├── bench.py                # Benchmark runner
-│   ├── scenarios.json          # 11 benchmark scenarios
-│   └── results/                # Benchmark reports
+│   └── scenarios.json          # Benchmark scenarios
 └── terraform/
     ├── main.tf                 # EC2 + EBS
-    ├── postgres.tf             # Security groups
+    ├── postgres.tf             # DB instance
+    ├── proxy.tf                # PgCat proxy
     └── variables.tf            # Configuration
 ```
 

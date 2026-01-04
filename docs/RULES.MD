@@ -15,23 +15,35 @@ hardware → os config → disk config → disk benchmark → software install �
 - Mỗi script làm 1 việc duy nhất
 - **Idempotent end-to-end**: chạy lại từ đầu phải trở về đúng trạng thái mong muốn, bất kể trạng thái hiện tại
 
-## 4. Config Separation
+## 4. Config Separation (Hardware Context System)
 - **Tất cả config name/value phải nằm ở file external**
-- `config.env`: OS/RAID/XFS config (shell-compatible KEY=VALUE)
-- `infra.toml`: Hardware specs, dynamic ceilings (TOML format)
-- Script chỉ chứa logic, không chứa hardcoded values
-- Shell scripts: `source config.env`
-- Python scripts: load cả `config.env` và `infra.toml`
+- Config organized by hardware context: `scripts/hardware/<context>/`
+- Context naming: `<instance_type>.<net_gbps>.<ebs_gbps>.<disk_count>disk.<raid_level>`
+- Shell scripts: `source load-config.sh` (auto-loads from hardware context)
 
 ```
 scripts/
-├── config.env          # OS/RAID/XFS config
-├── infra.toml          # Hardware specs (dynamic ceilings)
-├── 01-os-tuning.sh     # source config.env rồi execute
+├── hardware/
+│   ├── _template/              # Config template
+│   ├── generate-config.sh      # Generate config for new hardware
+│   └── c8gb.2xlarge.33.25.8disk.raid10/
+│       ├── config.env          # OS/RAID/XFS/PostgreSQL tuning
+│       ├── proxy/pgcat.toml    # PgCat configuration
+│       ├── topology.yaml       # Infrastructure spec
+│       └── TUNING_NOTES.md     # Tuning rationale
+├── load-config.sh              # Config loader
+├── 01-os-tuning.sh             # source load-config.sh
 ├── 02-raid-setup.sh
-├── 04-benchmark.py     # load config.env + infra.toml
-└── bench/              # Python benchmark package
+├── 03-disk-tuning.sh
+├── 05-db-install.sh
+└── bench.py                    # Unified benchmark tool
 ```
+
+### Parameter Classification
+| Type | Example | Source |
+|------|---------|--------|
+| Calculated | `shared_buffers = 25% RAM` | Hardware specs |
+| Experience-tuned | `bgwriter_delay = 10ms` | Benchmarking |
 
 ## 5. UI/UX
 - **Không sử dụng command line flags** - user dễ quên, khó dùng
