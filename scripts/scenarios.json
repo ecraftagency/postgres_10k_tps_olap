@@ -4,19 +4,56 @@
       "name": "DATA",
       "mount_point": "/data",
       "device": "/dev/md0",
-      "volumes": ["nvme2n1", "nvme3n1", "nvme5n1", "nvme8n1", "nvme9n1", "nvme11n1", "nvme12n1", "nvme15n1"]
+      "volumes": [
+        "nvme2n1",
+        "nvme3n1",
+        "nvme5n1",
+        "nvme8n1",
+        "nvme9n1",
+        "nvme11n1",
+        "nvme12n1",
+        "nvme15n1"
+      ]
     },
     "wal": {
       "name": "WAL",
       "mount_point": "/wal",
       "device": "/dev/md1",
-      "volumes": ["nvme1n1", "nvme4n1", "nvme6n1", "nvme7n1", "nvme10n1", "nvme13n1", "nvme14n1", "nvme16n1"]
+      "volumes": [
+        "nvme1n1",
+        "nvme4n1",
+        "nvme6n1",
+        "nvme7n1",
+        "nvme10n1",
+        "nvme13n1",
+        "nvme14n1",
+        "nvme16n1"
+      ]
     },
     "postgres": {
       "name": "POSTGRES",
       "mount_point": "/data,/wal",
       "device": "/dev/md0,/dev/md1",
-      "volumes": ["nvme1n1", "nvme2n1", "nvme3n1", "nvme4n1", "nvme5n1", "nvme6n1", "nvme7n1", "nvme8n1", "nvme9n1", "nvme10n1", "nvme11n1", "nvme12n1", "nvme13n1", "nvme14n1", "nvme15n1", "nvme16n1", "md0", "md1"]
+      "volumes": [
+        "nvme1n1",
+        "nvme2n1",
+        "nvme3n1",
+        "nvme4n1",
+        "nvme5n1",
+        "nvme6n1",
+        "nvme7n1",
+        "nvme8n1",
+        "nvme9n1",
+        "nvme10n1",
+        "nvme11n1",
+        "nvme12n1",
+        "nvme13n1",
+        "nvme14n1",
+        "nvme15n1",
+        "nvme16n1",
+        "md0",
+        "md1"
+      ]
     }
   },
   "scenarios": {
@@ -30,18 +67,44 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=wal_commit_latency", "--filename=/wal/bench_wal_lat", "--size=2G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=write", "--fdatasync=1", "--iodepth=1", "--numjobs=1", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=wal_commit_latency",
+            "--filename=/wal/bench_wal_lat",
+            "--size=2G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=8k",
+            "--rw=write",
+            "--fdatasync=1",
+            "--iodepth=1",
+            "--numjobs=1",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/wal/bench_wal_lat"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -56,18 +119,44 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=data_stress_test", "--filename=/data/bench_data_stress", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randrw", "--rwmixread=70", "--iodepth=64", "--numjobs=4", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=data_stress_test",
+            "--filename=/data/bench_data_stress",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=8k",
+            "--rw=randrw",
+            "--rwmixread=70",
+            "--iodepth=64",
+            "--numjobs=4",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/data/bench_data_stress"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -82,18 +171,43 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=data_latency_test", "--filename=/data/bench_data_lat", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randread", "--iodepth=1", "--numjobs=1", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=data_latency_test",
+            "--filename=/data/bench_data_lat",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=8k",
+            "--rw=randread",
+            "--iodepth=1",
+            "--numjobs=1",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/data/bench_data_lat"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -108,18 +222,43 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=data_throughput_test", "--filename=/data/bench_data_bw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=read", "--iodepth=16", "--numjobs=1", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=data_throughput_test",
+            "--filename=/data/bench_data_bw",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=1M",
+            "--rw=read",
+            "--iodepth=16",
+            "--numjobs=1",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/data/bench_data_bw"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -134,18 +273,43 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=wal_throughput", "--filename=/wal/bench_wal_bw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=write", "--iodepth=16", "--numjobs=1", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=wal_throughput",
+            "--filename=/wal/bench_wal_bw",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=1M",
+            "--rw=write",
+            "--iodepth=16",
+            "--numjobs=1",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/wal/bench_wal_bw"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -160,18 +324,44 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=wal_group_commit", "--filename=/wal/bench_wal_stress", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=32k", "--rw=write", "--fdatasync=1", "--iodepth=32", "--numjobs=4", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=wal_group_commit",
+            "--filename=/wal/bench_wal_stress",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=32k",
+            "--rw=write",
+            "--fdatasync=1",
+            "--iodepth=32",
+            "--numjobs=4",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/wal/bench_wal_stress"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -186,18 +376,43 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=data_seq_write_test", "--filename=/data/bench_data_seqw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=write", "--iodepth=16", "--numjobs=1", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=data_seq_write_test",
+            "--filename=/data/bench_data_seqw",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=1M",
+            "--rw=write",
+            "--iodepth=16",
+            "--numjobs=1",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/data/bench_data_seqw"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -212,18 +427,43 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=data_rand_write_test", "--filename=/data/bench_data_randw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randwrite", "--iodepth=64", "--numjobs=4", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=data_rand_write_test",
+            "--filename=/data/bench_data_randw",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=8k",
+            "--rw=randwrite",
+            "--iodepth=64",
+            "--numjobs=4",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/data/bench_data_randw"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -238,18 +478,45 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=data_mixed_sync_test", "--filename=/data/bench_data_sync", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randrw", "--rwmixread=70", "--fdatasync=1", "--iodepth=32", "--numjobs=4", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=data_mixed_sync_test",
+            "--filename=/data/bench_data_sync",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=8k",
+            "--rw=randrw",
+            "--rwmixread=70",
+            "--fdatasync=1",
+            "--iodepth=32",
+            "--numjobs=4",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/data/bench_data_sync"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -264,18 +531,43 @@
       "parallel": [
         {
           "name": "fio",
-          "cmd": ["fio", "--name=wal_read_replay", "--filename=/wal/bench_wal_replay", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=read", "--iodepth=8", "--numjobs=1", "--group_reporting"],
+          "cmd": [
+            "fio",
+            "--name=wal_read_replay",
+            "--filename=/wal/bench_wal_replay",
+            "--size=5G",
+            "--time_based",
+            "--runtime={duration}s",
+            "--ioengine=libaio",
+            "--direct=1",
+            "--bs=1M",
+            "--rw=read",
+            "--iodepth=8",
+            "--numjobs=1",
+            "--group_reporting"
+          ],
           "primary": true,
           "cleanup": "/wal/bench_wal_replay"
         },
         {
           "name": "iostat",
-          "cmd": ["iostat", "-xz", "1", "{duration}"],
+          "cmd": [
+            "iostat",
+            "-xz",
+            "1",
+            "{duration}"
+          ],
           "filter_volumes": true
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         }
       ],
       "end": []
@@ -289,60 +581,142 @@
       "begin": [
         {
           "name": "sysctl_swappiness",
-          "cmd": ["sysctl", "-w", "vm.swappiness=1"]
+          "cmd": [
+            "sysctl",
+            "-w",
+            "vm.swappiness=1"
+          ]
         },
         {
           "name": "sysctl_dirty_background",
-          "cmd": ["sysctl", "-w", "vm.dirty_background_ratio=1"]
+          "cmd": [
+            "sysctl",
+            "-w",
+            "vm.dirty_background_ratio=1"
+          ]
         },
         {
           "name": "sysctl_dirty_ratio",
-          "cmd": ["sysctl", "-w", "vm.dirty_ratio=4"]
+          "cmd": [
+            "sysctl",
+            "-w",
+            "vm.dirty_ratio=4"
+          ]
         },
         {
           "name": "sysctl_dirty_expire",
-          "cmd": ["sysctl", "-w", "vm.dirty_expire_centisecs=200"]
+          "cmd": [
+            "sysctl",
+            "-w",
+            "vm.dirty_expire_centisecs=200"
+          ]
         },
         {
           "name": "sysctl_dirty_writeback",
-          "cmd": ["sysctl", "-w", "vm.dirty_writeback_centisecs=100"]
+          "cmd": [
+            "sysctl",
+            "-w",
+            "vm.dirty_writeback_centisecs=100"
+          ]
         },
         {
           "name": "pg_stat_reset",
-          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('bgwriter');"]
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "psql",
+            "-c",
+            "SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('bgwriter');"
+          ]
         }
       ],
       "parallel": [
         {
           "name": "meminfo",
-          "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do date '+%H:%M:%S'; grep -E 'Dirty|Writeback' /proc/meminfo; echo '---'; sleep 1; done"]
+          "cmd": [
+            "bash",
+            "-c",
+            "for i in $(seq 1 {duration}); do date '+%H:%M:%S'; grep -E 'Dirty|Writeback' /proc/meminfo; echo '---'; sleep 1; done"
+          ]
         },
         {
           "name": "dstat",
-          "cmd": ["dstat", "-tcmdr", "--disk-util", "1", "{duration}"]
+          "cmd": [
+            "dstat",
+            "-tcmdr",
+            "--disk-util",
+            "1",
+            "{duration}"
+          ]
         },
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         },
         {
           "name": "pg_wait_events",
-          "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 10\"; sleep 1; done"]
+          "cmd": [
+            "bash",
+            "-c",
+            "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 10\"; sleep 1; done"
+          ]
         },
         {
           "name": "pg_checkpoint_log",
-          "cmd": ["bash", "-c", "timeout {duration}s tail -f /var/log/postgresql/postgresql-16-main.log 2>/dev/null | grep --line-buffered -i checkpoint || true"]
+          "cmd": [
+            "bash",
+            "-c",
+            "timeout {duration}s tail -f /var/log/postgresql/postgresql-16-main.log 2>/dev/null | grep --line-buffered -i checkpoint || true"
+          ]
         },
         {
           "name": "pgbench",
-          "cmd": ["sudo", "-u", "postgres", "pgbench", "-c", "100", "-j", "6", "-T", "{duration}", "-P", "5", "-b", "tpcb-like", "pgbench"],
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "pgbench",
+            "-c",
+            "100",
+            "-j",
+            "8",
+            "-T",
+            "{duration}",
+            "-P",
+            "5",
+            "-b",
+            "tpcb-like",
+            "pgbench"
+          ],
           "primary": true
+        },
+        {
+          "name": "pg_deep_stats",
+          "cmd": [
+            "bash",
+            "-c",
+            "echo 'Time,HitRatio,DiskRead,XactCommit,CkptReq,BufBackend,WalBytes'; for i in $(seq 1 12); do sudo -u postgres psql -t -A -F',' -c \"SELECT to_char(now(), 'HH24:MI:SS'), round(d.blks_hit::numeric / (d.blks_hit + d.blks_read + 1) * 100, 2), d.blks_read, d.xact_commit, b.checkpoints_req, b.buffers_backend, w.wal_bytes FROM pg_stat_database d, pg_stat_bgwriter b, pg_stat_wal w WHERE d.datname = current_database()\"; sleep 5; done"
+          ]
         }
       ],
       "end": [
         {
           "name": "pg_stat_bgwriter",
-          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT buffers_checkpoint, buffers_clean, buffers_backend, buffers_alloc FROM pg_stat_bgwriter"]
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "psql",
+            "-c",
+            "SELECT buffers_checkpoint, buffers_clean, buffers_backend, buffers_alloc FROM pg_stat_bgwriter"
+          ]
         }
       ]
     },
@@ -355,32 +729,84 @@
       "begin": [
         {
           "name": "pg_stat_reset",
-          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('bgwriter');"]
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "psql",
+            "-c",
+            "SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('bgwriter');"
+          ]
         }
       ],
       "parallel": [
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         },
         {
           "name": "dstat",
-          "cmd": ["dstat", "-tcmdr", "1", "{duration}"]
+          "cmd": [
+            "dstat",
+            "-tcmdr",
+            "1",
+            "{duration}"
+          ]
         },
         {
           "name": "pg_wait_events",
-          "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 5\"; sleep 1; done"]
+          "cmd": [
+            "bash",
+            "-c",
+            "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 5\"; sleep 1; done"
+          ]
         },
         {
           "name": "pgbench",
-          "cmd": ["sudo", "-u", "postgres", "pgbench", "-S", "-c", "50", "-j", "4", "-T", "{duration}", "-P", "5", "pgbench"],
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "pgbench",
+            "-S",
+            "-c",
+            "50",
+            "-j",
+            "4",
+            "-T",
+            "{duration}",
+            "-P",
+            "5",
+            "pgbench"
+          ],
           "primary": true
+        },
+        {
+          "name": "pg_deep_stats",
+          "cmd": [
+            "bash",
+            "-c",
+            "echo 'Time,HitRatio,DiskRead,XactCommit,CkptReq,BufBackend,WalBytes'; for i in $(seq 1 12); do sudo -u postgres psql -t -A -F',' -c \"SELECT to_char(now(), 'HH24:MI:SS'), round(d.blks_hit::numeric / (d.blks_hit + d.blks_read + 1) * 100, 2), d.blks_read, d.xact_commit, b.checkpoints_req, b.buffers_backend, w.wal_bytes FROM pg_stat_database d, pg_stat_bgwriter b, pg_stat_wal w WHERE d.datname = current_database()\"; sleep 5; done"
+          ]
         }
       ],
       "end": [
         {
           "name": "pg_stat_bgwriter",
-          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT * FROM pg_stat_bgwriter"]
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "psql",
+            "-c",
+            "SELECT * FROM pg_stat_bgwriter"
+          ]
         }
       ]
     },
@@ -393,22 +819,65 @@
       "begin": [
         {
           "name": "pg_stat_reset",
-          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"]
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "psql",
+            "-c",
+            "SELECT pg_stat_reset();"
+          ]
         }
       ],
       "parallel": [
         {
           "name": "mpstat",
-          "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"]
+          "cmd": [
+            "mpstat",
+            "-P",
+            "ALL",
+            "1",
+            "{duration}"
+          ]
         },
         {
           "name": "dstat_tcp",
-          "cmd": ["dstat", "-tcy", "--tcp", "1", "{duration}"]
+          "cmd": [
+            "dstat",
+            "-tcy",
+            "--tcp",
+            "1",
+            "{duration}"
+          ]
         },
         {
           "name": "pgbench",
-          "cmd": ["sudo", "-u", "postgres", "pgbench", "-S", "-C", "-c", "20", "-j", "4", "-T", "{duration}", "-P", "5", "pgbench"],
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "pgbench",
+            "-S",
+            "-C",
+            "-c",
+            "20",
+            "-j",
+            "4",
+            "-T",
+            "{duration}",
+            "-P",
+            "5",
+            "pgbench"
+          ],
           "primary": true
+        },
+        {
+          "name": "pg_deep_stats",
+          "cmd": [
+            "bash",
+            "-c",
+            "echo 'Time,HitRatio,DiskRead,XactCommit,CkptReq,BufBackend,WalBytes'; for i in $(seq 1 12); do sudo -u postgres psql -t -A -F',' -c \"SELECT to_char(now(), 'HH24:MI:SS'), round(d.blks_hit::numeric / (d.blks_hit + d.blks_read + 1) * 100, 2), d.blks_read, d.xact_commit, b.checkpoints_req, b.buffers_backend, w.wal_bytes FROM pg_stat_database d, pg_stat_bgwriter b, pg_stat_wal w WHERE d.datname = current_database()\"; sleep 5; done"
+          ]
         }
       ],
       "end": []
@@ -422,28 +891,73 @@
       "begin": [
         {
           "name": "pg_stat_reset",
-          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"]
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "psql",
+            "-c",
+            "SELECT pg_stat_reset();"
+          ]
         }
       ],
       "parallel": [
         {
           "name": "vmstat",
-          "cmd": ["vmstat", "1", "{duration}"]
+          "cmd": [
+            "vmstat",
+            "1",
+            "{duration}"
+          ]
         },
         {
           "name": "pg_wait_events",
-          "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 10\"; sleep 1; done"]
+          "cmd": [
+            "bash",
+            "-c",
+            "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 10\"; sleep 1; done"
+          ]
         },
         {
           "name": "pgbench",
-          "cmd": ["sudo", "-u", "postgres", "pgbench", "-S", "-c", "1000", "-j", "4", "-T", "{duration}", "-P", "5", "pgbench"],
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "pgbench",
+            "-S",
+            "-c",
+            "1000",
+            "-j",
+            "4",
+            "-T",
+            "{duration}",
+            "-P",
+            "5",
+            "pgbench"
+          ],
           "primary": true
+        },
+        {
+          "name": "pg_deep_stats",
+          "cmd": [
+            "bash",
+            "-c",
+            "echo 'Time,HitRatio,DiskRead,XactCommit,CkptReq,BufBackend,WalBytes'; for i in $(seq 1 12); do sudo -u postgres psql -t -A -F',' -c \"SELECT to_char(now(), 'HH24:MI:SS'), round(d.blks_hit::numeric / (d.blks_hit + d.blks_read + 1) * 100, 2), d.blks_read, d.xact_commit, b.checkpoints_req, b.buffers_backend, w.wal_bytes FROM pg_stat_database d, pg_stat_bgwriter b, pg_stat_wal w WHERE d.datname = current_database()\"; sleep 5; done"
+          ]
         }
       ],
       "end": [
         {
           "name": "pg_locks",
-          "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT mode, count(*) FROM pg_locks GROUP BY 1 ORDER BY 2 DESC"]
+          "cmd": [
+            "sudo",
+            "-u",
+            "postgres",
+            "psql",
+            "-c",
+            "SELECT mode, count(*) FROM pg_locks GROUP BY 1 ORDER BY 2 DESC"
+          ]
         }
       ]
     }
