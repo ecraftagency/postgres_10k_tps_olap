@@ -57,13 +57,19 @@ benchmark:
   workload: pgbench_tpcb
   scale: 1374
   clients: 100
+  threads: 32
+  duration: 120
   results:
-    # Scenario B: shared_buffers=20GB, parallel workers optimized for 32 vCPU
-    tps_avg: 31532
-    tps_peak: 33565
-    tps_min: 28743
-    latency_avg_ms: 3.0
-    io_cliff: false  # Eliminated by matching shared_buffers to dataset size
+    # Scenario C: Hugepages + WAL tuning + 32 threads
+    tps_avg: 40752
+    tps_peak: 41647
+    tps_min: 39220
+    latency_avg_ms: 2.45
+    io_cliff: false
+    key_tuning:
+      - huge_pages=on
+      - wal_buffers=256MB
+      - commit_delay=0
 
 # -----------------------------------------------------------------------------
 # Cost Estimate (us-west-2, monthly)
