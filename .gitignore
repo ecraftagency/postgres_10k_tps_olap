@@ -9,7 +9,13 @@ crash.log
 # Sensitive files
 *.pem
 *.key
-config.env
+
+# Top-level config (sensitive)
+/config.env
+/scripts/config.env
+
+# Allow hardware context configs (not sensitive - these are templates)
+!scripts/hardware/*/config.env
 
 # OS
 .DS_Store

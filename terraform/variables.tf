@@ -7,7 +7,10 @@ variable "az" {
 }
 
 variable "instance_type" {
-  default = "c8gb.8xlarge"
+  # r8g.2xlarge: Memory optimized, Graviton3
+  # 8 vCPU, 64 GB RAM, ~10 Gbps network
+  # Price/perf balance: Same RAM as c8gb.8xlarge but 1/4 cost
+  default = "r8g.2xlarge"
 }
 
 variable "ami" {
