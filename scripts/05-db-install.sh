@@ -22,18 +22,11 @@ log_skip()  { echo -e "${YELLOW}[SKIP]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # -----------------------------------------------------------------------------
-# Load Configuration from config.env
+# Load Configuration from hardware context
 # -----------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="${SCRIPT_DIR}/config.env"
-
-if [ ! -f "${CONFIG_FILE}" ]; then
-    log_error "Config file not found: ${CONFIG_FILE}"
-    exit 1
-fi
-
-log_info "Loading configuration from ${CONFIG_FILE}"
-source "${CONFIG_FILE}"
+source "$SCRIPT_DIR/load-config.sh"
+log_info "Loaded configuration from ${CONFIG_FILE}"
 
 # Validate required variables
 required_vars=(
