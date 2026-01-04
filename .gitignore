@@ -28,3 +28,4 @@ __pycache__/
 
 # Benchmark results
 scripts/results/
+terraform/plan.out

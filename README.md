@@ -212,6 +212,89 @@ cd scripts
 # Creates: hardware/r8g.4xlarge.15.10.16disk.raid10/config.env
 ```
 
+## Golden Rule: Config Change Workflow
+
+When changing instance type or tuning configuration, follow this workflow:
+
+### 1. Analyze Hardware Context
+```bash
+# Check instance specs: vCPU, RAM, Network, EBS bandwidth
+aws ec2 describe-instance-types --instance-types r8g.xlarge
+```
+
+### 2. Update Local Config First
+```bash
+# Edit config.env in the appropriate hardware context
+vim scripts/hardware/<context>/config.env
+
+# Memory settings scale with RAM:
+# - shared_buffers: 25% RAM
+# - effective_cache_size: 70% RAM
+# - work_mem: (RAM * 0.25) / max_connections
+# - HugePages: shared_buffers / 2MB + 7%
+
+# CPU settings scale with vCPU:
+# - max_worker_processes = vCPU
+# - max_parallel_workers = vCPU
+# - max_parallel_workers_per_gather = vCPU / 2
+# - autovacuum_max_workers = vCPU / 2
+
+# DISK settings: Keep same across instances (RAID config doesn't change)
+```
+
+### 3. Upload to Remote (use rsync)
+```bash
+# SSH key: ~/.ssh/id_rsa
+# Always use rsync over scp for efficiency
+rsync -avz -e "ssh -i ~/.ssh/id_rsa" \
+  scripts/ ubuntu@<IP>:/home/ubuntu/scripts/
+```
+
+### 4. Create/Verify Symlink
+```bash
+ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
+  "ln -sf /home/ubuntu/scripts/hardware/<context>/config.env \
+   /home/ubuntu/scripts/config.env"
+```
+
+### 5. Apply VM/OS Config First
+```bash
+ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
+  "export HARDWARE_CONTEXT=<context> && sudo -E bash scripts/01-os-tuning.sh"
+
+# Set HugePages manually if needed:
+ssh -i ~/.ssh/id_rsa ubuntu@<IP> "sudo sysctl -w vm.nr_hugepages=<value>"
+```
+
+### 6. Apply PostgreSQL Config
+```bash
+# Use ALTER SYSTEM for runtime changes
+ssh -i ~/.ssh/id_rsa ubuntu@<IP> "sudo -u postgres psql -c \"
+  ALTER SYSTEM SET shared_buffers = '8GB';
+  -- ... other settings
+  SELECT pg_reload_conf();
+\""
+
+# Restart if needed (shared_buffers, huge_pages require restart)
+ssh -i ~/.ssh/id_rsa ubuntu@<IP> "sudo systemctl restart postgresql@16-main"
+```
+
+### 7. Verify Configuration
+```bash
+ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
+  "export HARDWARE_CONTEXT=<context> && sudo -E bash scripts/verify-config.sh"
+```
+
+### 8. Run Benchmark & Iterate
+```bash
+ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
+  "cd scripts && sudo python3 bench.py --run 11"
+
+# Download results
+rsync -avz -e "ssh -i ~/.ssh/id_rsa" \
+  ubuntu@<IP>:/home/ubuntu/scripts/results/ scripts/results/
+```
+
 ## Project Structure
 
 ```

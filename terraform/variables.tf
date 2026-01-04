@@ -7,10 +7,10 @@ variable "az" {
 }
 
 variable "instance_type" {
-  # r8g.2xlarge: Memory optimized, Graviton3
-  # 8 vCPU, 64 GB RAM, ~10 Gbps network
-  # Price/perf balance: Same RAM as c8gb.8xlarge but 1/4 cost
-  default = "r8g.2xlarge"
+  # r8g.xlarge: Memory optimized, Graviton4
+  # 4 vCPU, 32 GB RAM, 12.5 Gbps network, 10 Gbps EBS
+  # Target: 10K TPS @ $145/month (50% cost reduction)
+  default = "r8g.xlarge"
 }
 
 variable "ami" {
