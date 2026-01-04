@@ -1,5 +1,32 @@
 # Tuning Notes: c8gb.8xlarge.66.50.8disk.raid10
 
+## Golden Rule
+
+> **When benchmark tuning discovers new optimized values or extends the config set,
+> and that config proves the tuning works → UPDATE config.env IMMEDIATELY.**
+>
+> config.env is our most valuable asset - it captures proven, battle-tested configurations.
+
+### Config Categories (104 parameters)
+
+| Category                          | Count |
+|-----------------------------------|-------|
+| 1. OS TUNING - MEMORY             | 9     |
+| 2. OS TUNING - FILE DESCRIPTORS   | 4     |
+| 3. OS TUNING - NETWORK/TCP        | 11    |
+| 4. OS TUNING - SCHEDULER          | 4     |
+| 5. RAID CONFIG - DATA             | 7     |
+| 6. RAID CONFIG - WAL              | 7     |
+| 7. XFS OPTIONS                    | 8     |
+| 8. BLOCK DEVICE - DATA            | 8     |
+| 9. BLOCK DEVICE - WAL             | 8     |
+| 10. MDADM TUNING                  | 1     |
+| 11-20. POSTGRESQL (10 categories) | 39    |
+| 21. BENCHMARK CONFIG              | 5     |
+| **TOTAL**                         | **104** |
+
+---
+
 ## Hardware Specs
 
 | Component | Spec |

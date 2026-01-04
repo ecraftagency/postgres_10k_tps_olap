@@ -55,13 +55,15 @@ components:
 # -----------------------------------------------------------------------------
 benchmark:
   workload: pgbench_tpcb
-  scale: 1250
+  scale: 1374
   clients: 100
   results:
-    tps_avg: 21199
-    tps_peak: 34856
-    tps_min: 16570
-    latency_avg_ms: 4.69
+    # Scenario B: shared_buffers=20GB, parallel workers optimized for 32 vCPU
+    tps_avg: 31532
+    tps_peak: 33565
+    tps_min: 28743
+    latency_avg_ms: 3.0
+    io_cliff: false  # Eliminated by matching shared_buffers to dataset size
 
 # -----------------------------------------------------------------------------
 # Cost Estimate (us-west-2, monthly)
