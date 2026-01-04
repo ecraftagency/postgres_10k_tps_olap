@@ -214,86 +214,62 @@ cd scripts
 
 ## Golden Rule: Config Change Workflow
 
-When changing instance type or tuning configuration, follow this workflow:
+> **KHÔNG SHORTCUT!** Luôn chạy scripts đầy đủ, không apply từng setting thủ công.
 
-### 1. Analyze Hardware Context
+### Checklist
+
 ```bash
-# Check instance specs: vCPU, RAM, Network, EBS bandwidth
-aws ec2 describe-instance-types --instance-types r8g.xlarge
+# 0. Set variables
+export IP=<server-ip>
+export CTX=<hardware-context>  # e.g., r8g.2xlarge.15.10.8disk.raid10
+
+# 1. Edit config locally
+vim scripts/hardware/$CTX/config.env
+
+# 2. Upload via rsync (KHÔNG dùng scp)
+rsync -avz -e "ssh -i ~/.ssh/id_rsa" scripts/ ubuntu@$IP:/home/ubuntu/scripts/
+
+# 3. Create symlink
+ssh -i ~/.ssh/id_rsa ubuntu@$IP "ln -sf /home/ubuntu/scripts/hardware/$CTX/config.env /home/ubuntu/scripts/config.env"
+
+# 4. Apply ALL scripts (KHÔNG skip)
+ssh -i ~/.ssh/id_rsa ubuntu@$IP "export HARDWARE_CONTEXT=$CTX && sudo -E bash /home/ubuntu/scripts/01-os-tuning.sh"
+ssh -i ~/.ssh/id_rsa ubuntu@$IP "export HARDWARE_CONTEXT=$CTX && sudo -E bash /home/ubuntu/scripts/03-disk-tuning.sh"
+ssh -i ~/.ssh/id_rsa ubuntu@$IP "sudo systemctl restart postgresql@16-main"
+
+# 5. Verify (PHẢI pass 100%)
+ssh -i ~/.ssh/id_rsa ubuntu@$IP "export HARDWARE_CONTEXT=$CTX && sudo -E bash /home/ubuntu/scripts/verify-config.sh"
+
+# 6. Benchmark
+ssh -i ~/.ssh/id_rsa ubuntu@$IP "cd /home/ubuntu/scripts && sudo python3 bench.py --run 11"
+
+# 7. Download results
+rsync -avz -e "ssh -i ~/.ssh/id_rsa" ubuntu@$IP:/home/ubuntu/scripts/results/ scripts/results/
 ```
 
-### 2. Update Local Config First
-```bash
-# Edit config.env in the appropriate hardware context
-vim scripts/hardware/<context>/config.env
+### Quy tắc
 
-# Memory settings scale with RAM:
-# - shared_buffers: 25% RAM
-# - effective_cache_size: 70% RAM
-# - work_mem: (RAM * 0.25) / max_connections
-# - HugePages: shared_buffers / 2MB + 7%
+| # | Rule | Lý do |
+|---|------|-------|
+| 1 | **Luôn chạy scripts, không ALTER SYSTEM thủ công** | Scripts đảm bảo apply đầy đủ từ config.env |
+| 2 | **rsync, không scp** | Hiệu quả hơn, giữ permissions |
+| 3 | **SSH key: ~/.ssh/id_rsa** | Consistent across all commands |
+| 4 | **verify-config.sh phải pass 100%** | Không benchmark khi config sai |
+| 5 | **Restart PostgreSQL sau khi apply** | shared_buffers, huge_pages cần restart |
 
-# CPU settings scale with vCPU:
-# - max_worker_processes = vCPU
-# - max_parallel_workers = vCPU
-# - max_parallel_workers_per_gather = vCPU / 2
-# - autovacuum_max_workers = vCPU / 2
+### Scaling Guide
 
-# DISK settings: Keep same across instances (RAID config doesn't change)
-```
+| RAM | shared_buffers | HugePages | effective_cache_size |
+|-----|----------------|-----------|---------------------|
+| 32GB | 8GB | 4400 | 22GB |
+| 64GB | 20GB | 11000 | 44GB |
+| 128GB | 32GB | 17600 | 90GB |
 
-### 3. Upload to Remote (use rsync)
-```bash
-# SSH key: ~/.ssh/id_rsa
-# Always use rsync over scp for efficiency
-rsync -avz -e "ssh -i ~/.ssh/id_rsa" \
-  scripts/ ubuntu@<IP>:/home/ubuntu/scripts/
-```
-
-### 4. Create/Verify Symlink
-```bash
-ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
-  "ln -sf /home/ubuntu/scripts/hardware/<context>/config.env \
-   /home/ubuntu/scripts/config.env"
-```
-
-### 5. Apply VM/OS Config First
-```bash
-ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
-  "export HARDWARE_CONTEXT=<context> && sudo -E bash scripts/01-os-tuning.sh"
-
-# Set HugePages manually if needed:
-ssh -i ~/.ssh/id_rsa ubuntu@<IP> "sudo sysctl -w vm.nr_hugepages=<value>"
-```
-
-### 6. Apply PostgreSQL Config
-```bash
-# Use ALTER SYSTEM for runtime changes
-ssh -i ~/.ssh/id_rsa ubuntu@<IP> "sudo -u postgres psql -c \"
-  ALTER SYSTEM SET shared_buffers = '8GB';
-  -- ... other settings
-  SELECT pg_reload_conf();
-\""
-
-# Restart if needed (shared_buffers, huge_pages require restart)
-ssh -i ~/.ssh/id_rsa ubuntu@<IP> "sudo systemctl restart postgresql@16-main"
-```
-
-### 7. Verify Configuration
-```bash
-ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
-  "export HARDWARE_CONTEXT=<context> && sudo -E bash scripts/verify-config.sh"
-```
-
-### 8. Run Benchmark & Iterate
-```bash
-ssh -i ~/.ssh/id_rsa ubuntu@<IP> \
-  "cd scripts && sudo python3 bench.py --run 11"
-
-# Download results
-rsync -avz -e "ssh -i ~/.ssh/id_rsa" \
-  ubuntu@<IP>:/home/ubuntu/scripts/results/ scripts/results/
-```
+| vCPU | max_workers | parallel_per_gather | autovacuum_workers |
+|------|-------------|--------------------|--------------------|
+| 4 | 4 | 2 | 2 |
+| 8 | 8 | 4 | 4 |
+| 16 | 16 | 8 | 6 |
 
 ## Project Structure
 

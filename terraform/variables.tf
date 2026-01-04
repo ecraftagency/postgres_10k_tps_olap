@@ -29,8 +29,14 @@ variable "proxy_ami" {
 }
 
 variable "key_name" {
-  description = "SSH key pair name"
+  description = "SSH key pair name in AWS"
   type        = string
+}
+
+variable "ssh_private_key" {
+  description = "Path to SSH private key for connections"
+  type        = string
+  default     = "~/.ssh/id_rsa"
 }
 
 variable "vpc_cidr" {
