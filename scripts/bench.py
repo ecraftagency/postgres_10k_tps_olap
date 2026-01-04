@@ -26,6 +26,16 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 OUTPUT_DIR = SCRIPT_DIR / "results"
 SCENARIOS_FILE = SCRIPT_DIR / "scenarios.json"
 
+# PgCat connection pooler config (for --via-pgcat mode)
+# Run benchmark from proxy server, so host = localhost
+PGCAT_CONFIG = {
+    "host": os.environ.get("PGCAT_HOST", "localhost"),
+    "port": os.environ.get("PGCAT_PORT", "5432"),
+    "user": os.environ.get("PGCAT_USER", "postgres"),
+    "password": os.environ.get("PGCAT_PASSWORD", ""),
+    "database": os.environ.get("PGCAT_DATABASE", "pgbench"),
+}
+
 # Gemini API for AI analysis
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
@@ -206,6 +216,63 @@ class CommandResult:
     success: bool
 
 
+def modify_cmd_for_pgcat(cmd: List[str], via_pgcat: bool) -> List[str]:
+    """Modify pgbench/psql commands to connect via PgCat instead of local socket"""
+    if not via_pgcat:
+        return cmd
+
+    # Find pgbench or psql in the command (may be after sudo -u postgres)
+    pg_cmd_idx = -1
+    for i, arg in enumerate(cmd):
+        if arg in ("pgbench", "psql"):
+            pg_cmd_idx = i
+            break
+
+    if pg_cmd_idx == -1:
+        return cmd  # Not a postgres command
+
+    # Start fresh - skip "sudo -u postgres" prefix if present
+    # When using PgCat, we connect over network, no need for sudo
+    start_idx = 0
+    if len(cmd) >= 3 and cmd[0] == "sudo" and cmd[1] == "-u" and cmd[2] == "postgres":
+        start_idx = 3  # Skip sudo -u postgres
+
+    # Build new command starting with pgbench/psql
+    new_cmd = [cmd[pg_cmd_idx]]
+
+    # Add connection params right after pgbench/psql
+    new_cmd.extend([
+        "-h", PGCAT_CONFIG["host"],
+        "-p", PGCAT_CONFIG["port"],
+        "-U", PGCAT_CONFIG["user"],
+    ])
+
+    # Process remaining args - skip existing connection flags and final db name
+    remaining = cmd[pg_cmd_idx + 1:]
+    skip_next = False
+
+    for i, arg in enumerate(remaining):
+        if skip_next:
+            skip_next = False
+            continue
+
+        # Skip existing connection flags
+        if arg in ("-h", "-p", "-U", "-d", "--host", "--port", "--username", "--dbname"):
+            skip_next = True
+            continue
+
+        # Skip last positional arg if it looks like a database name (no dash prefix)
+        if i == len(remaining) - 1 and not arg.startswith("-") and arg not in ("tpcb-like",):
+            continue
+
+        new_cmd.append(arg)
+
+    # Add database at the end
+    new_cmd.append(PGCAT_CONFIG["database"])
+
+    return new_cmd
+
+
 def run_sequential_commands(
     commands: List[dict],
     phase_name: str,
@@ -213,6 +280,7 @@ def run_sequential_commands(
     timestamp: str,
     duration: int,
     iostat_filter: str,
+    via_pgcat: bool = False,
 ) -> List[CommandResult]:
     """
     Run a list of commands sequentially.
@@ -230,6 +298,10 @@ def run_sequential_commands(
 
         # Replace placeholders
         cmd = [str(c).replace("{duration}", str(duration)) for c in cmd]
+
+        # Modify for PgCat if needed
+        cmd = modify_cmd_for_pgcat(cmd, via_pgcat)
+
         cmd_str = " ".join(shlex.quote(c) for c in cmd)
 
         print(f"  Running: {cmd_def['name']}...")
@@ -271,7 +343,7 @@ def run_sequential_commands(
     return results
 
 
-def run_benchmark(scenario_id: str) -> Optional[Path]:
+def run_benchmark(scenario_id: str, via_pgcat: bool = False) -> Optional[Path]:
     """
     Run a benchmark scenario with begin/parallel/end phases.
 
@@ -279,6 +351,10 @@ def run_benchmark(scenario_id: str) -> Optional[Path]:
     - begin: commands to run sequentially before benchmark
     - parallel: commands to run concurrently (one marked primary=true controls duration)
     - end: commands to run sequentially after benchmark
+
+    Args:
+        scenario_id: The scenario number to run
+        via_pgcat: If True, connect via PgCat pooler instead of direct PostgreSQL
 
     Returns path to the generated report.
     """
@@ -290,6 +366,14 @@ def run_benchmark(scenario_id: str) -> Optional[Path]:
 
     display_name = get_display_name(scenario, disk)
     export_prefix = get_export_prefix(scenario, disk)
+
+    # Add PgCat suffix if connecting via pooler
+    if via_pgcat:
+        display_name = f"{display_name} [via PgCat]"
+        export_prefix = f"{export_prefix}_via_pgcat"
+        # Set PGPASSWORD environment variable for pgbench/psql
+        if PGCAT_CONFIG["password"]:
+            os.environ["PGPASSWORD"] = PGCAT_CONFIG["password"]
 
     print(f"\n>>> Running: {display_name}")
     print("=" * 60)
@@ -317,6 +401,7 @@ def run_benchmark(scenario_id: str) -> Optional[Path]:
         timestamp=timestamp,
         duration=duration,
         iostat_filter=iostat_filter,
+        via_pgcat=via_pgcat,
     )
     command_results.extend(begin_results)
 
@@ -339,6 +424,10 @@ def run_benchmark(scenario_id: str) -> Optional[Path]:
 
             # Replace placeholders (add buffer for background commands)
             cmd = [str(c).replace("{duration}", str(duration + 10)) for c in cmd]
+
+            # Modify for PgCat if needed
+            cmd = modify_cmd_for_pgcat(cmd, via_pgcat)
+
             cmd_str = " ".join(shlex.quote(c) for c in cmd)
 
             # Output file
@@ -370,6 +459,10 @@ def run_benchmark(scenario_id: str) -> Optional[Path]:
 
         # Replace placeholders
         cmd = [str(c).replace("{duration}", str(duration)) for c in cmd]
+
+        # Modify for PgCat if needed
+        cmd = modify_cmd_for_pgcat(cmd, via_pgcat)
+
         cmd_str = " ".join(shlex.quote(c) for c in cmd)
 
         print(f"  Running primary: {primary_cmd['name']} ({duration}s)...")
@@ -449,6 +542,7 @@ def run_benchmark(scenario_id: str) -> Optional[Path]:
         timestamp=timestamp,
         duration=duration,
         iostat_filter=iostat_filter,
+        via_pgcat=via_pgcat,
     )
     command_results.extend(end_results)
 
@@ -651,16 +745,22 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Disk Benchmark Tool")
     parser.add_argument("--run", type=str, help="Run scenario directly (e.g., --run 1)")
+    parser.add_argument("--via-pgcat", action="store_true",
+                        help="Connect via PgCat pooler instead of direct PostgreSQL")
     args = parser.parse_args()
 
     if os.geteuid() != 0:
         print("Error: Must run as root (sudo)")
         sys.exit(1)
 
+    # Show PgCat config if enabled
+    if args.via_pgcat:
+        print(f"[PgCat Mode] Connecting via {PGCAT_CONFIG['host']}:{PGCAT_CONFIG['port']}")
+
     # Non-interactive mode
     if args.run:
         if args.run in SCENARIOS:
-            run_benchmark(args.run)
+            run_benchmark(args.run, via_pgcat=args.via_pgcat)
         else:
             print(f"Unknown scenario: {args.run}")
             print(f"Available: {', '.join(SCENARIOS.keys())}")
@@ -677,7 +777,7 @@ def main():
             print("Bye!")
             break
         elif choice in SCENARIOS:
-            run_benchmark(choice)
+            run_benchmark(choice, via_pgcat=args.via_pgcat)
             input("\nPress Enter to continue...")
         else:
             print("Invalid choice!")

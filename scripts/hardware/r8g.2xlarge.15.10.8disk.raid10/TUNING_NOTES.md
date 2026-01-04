@@ -211,6 +211,142 @@ Time,HitRatio,TPS,Active,WaitLock,Deadlock,WalBytes,DirtyBuf
 
 ---
 
+### Run 5: Via PgCat - TPC-B Write Intensive
+**Date**: 2026-01-04 10:03
+**Report**: `results/postgres_tpcb_via_pgcat_report_20260104-100358.md`
+
+**Setup**:
+- Benchmark chạy từ Proxy server (c8g.2xlarge)
+- Kết nối qua PgCat connection pooler
+- PgCat config: transaction mode, pool_size=250
+
+**Results**:
+| Metric | Value | vs Direct |
+|--------|-------|-----------|
+| TPS avg | **17,164** | -12.1% |
+| TPS peak | 17,256 | |
+| TPS min | 16,852 | |
+| Latency | 5.82 ms | +0.7ms |
+
+**Timeline**:
+```
+ 5s: 16,852 tps
+10s: 17,169 tps
+15s: 17,172 tps
+20s: 17,220 tps
+25s: 17,147 tps
+30s: 17,176 tps
+35s: 17,190 tps
+40s: 17,157 tps
+45s: 17,223 tps
+50s: 17,256 tps (peak)
+55s: 17,154 tps
+60s: 17,221 tps
+```
+
+**Observations**:
+1. PgCat overhead ~12% - acceptable for connection pooling
+2. Latency tăng 0.7ms do network hop (proxy -> db)
+3. Stable performance, no spikes
+
+---
+
+### Run 6: Via PgCat - Connection Storm
+**Date**: 2026-01-04 10:06
+**Report**: `results/postgres_connection_storm_via_pgcat_report_20260104-100648.md`
+
+**Setup**:
+- pgbench với flag `-C` (reconnect mỗi transaction)
+- Test khả năng connection pooling của PgCat
+
+**Results**:
+| Metric | Value | Notes |
+|--------|-------|-------|
+| TPS avg | **14,020** | Including reconnection |
+| TPS peak | 14,720 | |
+| TPS min | 13,746 | |
+| Latency | 1.89 ms | Per transaction |
+
+**Timeline**:
+```
+ 5s: 14,720 tps (peak)
+10s: 14,461 tps
+15s: 13,829 tps
+20s: 13,853 tps
+25s: 13,843 tps
+30s: 13,912 tps
+35s: 14,007 tps
+40s: 14,066 tps
+45s: 13,856 tps
+50s: 13,747 tps
+55s: 13,869 tps
+60s: 14,072 tps
+```
+
+**Key Insights**:
+1. **PgCat handles reconnects efficiently** - Client reconnect mỗi transaction nhưng PgCat giữ pool tới PostgreSQL
+2. **TPS chỉ giảm 18%** so với persistent connection (14K vs 17K)
+3. **No connection storm to PostgreSQL** - PgCat absorbs connection churn
+
+---
+
+### Run 7: Via PgCat - High Concurrency (1000 Clients)
+**Date**: 2026-01-04 10:10
+**Report**: `results/postgres_high_concurrency_via_pgcat_report_20260104-101039.md`
+
+**Setup**:
+- 1000 clients competing for resources
+- PgCat pool_size=250 (multiplexing 1000 -> 250)
+- Test connection multiplexing efficiency
+
+**Results**:
+| Metric | Value | Notes |
+|--------|-------|-------|
+| TPS avg | **20,754** | Higher than 100-client direct! |
+| TPS peak | 20,841 | |
+| TPS min | 19,883 | |
+| Latency | 48.16 ms | Expected with 1000 clients |
+
+**Timeline**:
+```
+ 5s: 19,883 tps
+10s: 20,824 tps
+15s: 20,841 tps (peak)
+20s: 20,840 tps
+25s: 20,762 tps
+30s: 20,796 tps
+35s: 20,830 tps
+40s: 20,802 tps
+45s: 20,841 tps
+50s: 20,841 tps
+55s: 20,738 tps
+60s: 20,752 tps
+```
+
+**Key Insights**:
+1. **20.7K TPS > 19.5K direct** - PgCat multiplexing improves throughput!
+2. **1000 clients -> 250 connections** - 4:1 multiplexing ratio
+3. **Latency 48ms** - acceptable cho high concurrency scenario
+4. **0 failed transactions** - PgCat handles load gracefully
+
+---
+
+## PgCat Performance Summary
+
+| Scenario | Clients | Direct | Via PgCat | Delta |
+|----------|---------|--------|-----------|-------|
+| TPC-B (persistent) | 100 | 19,527 | 17,164 | -12% |
+| Connection Storm | 100 | N/A | 14,020 | - |
+| **High Concurrency** | 1000 | N/A | **20,754** | **+6%** vs direct |
+
+**PgCat Benefits**:
+- Connection multiplexing (1000 clients -> 250 connections)
+- Higher throughput at high concurrency
+- Absorbs connection storm efficiently
+- Transaction mode maximizes connection reuse
+
+---
+
 ## Price/Performance Analysis
 
 | Instance | TPS | Price/mo | TPS/$ | Relative |
