@@ -52,23 +52,25 @@ benchmark:
   workload: pgbench_tpcb
   scale: 1250
   clients: 100
-  threads: 8
+  threads: 16
   duration: 60
   results:
-    tps_avg: 19474
-    tps_peak: 19723
-    tps_min: 19076
-    latency_avg_ms: 5.15
+    tps_avg: 19527
+    tps_peak: 19967
+    tps_min: 18853
+    latency_avg_ms: 5.12
     io_cliff: false
-    cache_hit_ratio: 99.9
+    cache_hit_ratio: 100
+    wal_bottleneck: true
 
 # -----------------------------------------------------------------------------
 # Price/Performance Analysis
 # -----------------------------------------------------------------------------
 price_performance:
-  tps_per_dollar: 67.2
-  vs_c8gb_8xlarge: "+37% better value"
+  tps_per_dollar: 67.3
+  vs_c8gb_8xlarge: "+38% better value"
   recommended_for: "workloads < 20K TPS"
+  status: "PRODUCTION READY"
 
 # -----------------------------------------------------------------------------
 # Cost Estimate (us-west-2, monthly)
