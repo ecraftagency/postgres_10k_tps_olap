@@ -20,5 +20,5 @@ config.env
 __pycache__/
 *.pyc
 
-# Benchmark results (keep only reports)
-scripts/results/*.txt
+# Benchmark results
+scripts/results/
