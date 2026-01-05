@@ -26,6 +26,13 @@ from core.diagnostics import (
 )
 from core.reporter import generate_report, save_report, print_summary
 from core.ai_analyzer import analyze_report, print_scorecard
+from core.verifier import (
+    verify_config,
+    format_verification_table,
+    format_verification_summary,
+    print_verification,
+    generate_config_matrix,
+)
 from drivers.base import BenchmarkResult
 from drivers.pgbench import PgbenchDriver
 
@@ -46,6 +53,7 @@ def run_benchmark(
     warmup: bool = True,
     diagnostics_only: bool = False,
     skip_ai: bool = False,
+    skip_verify: bool = False,
 ) -> Path:
     """
     Run benchmark with full diagnostics.
@@ -58,6 +66,7 @@ def run_benchmark(
         warmup: Whether to run warmup phase
         diagnostics_only: Only collect diagnostics (no benchmark)
         skip_ai: Skip AI analysis
+        skip_verify: Skip config verification
 
     Returns:
         Path to generated report
@@ -72,6 +81,28 @@ def run_benchmark(
 
     print(f"Context: {context_id}")
     print(f"Duration: {duration}s, Clients: {clients}")
+
+    # =========================================================================
+    # CONFIG VERIFICATION (before benchmark)
+    # =========================================================================
+    verification_table = None
+    config_matrix_md = None
+
+    if not skip_verify:
+        print("\n--- Config Verification ---")
+        verification_results = verify_config(config)
+        print_verification(verification_results)
+
+        # Check for critical failures
+        passed, failed, summary = format_verification_summary(verification_results)
+        if failed > 0:
+            print(f"\n  WARNING: {failed} settings don't match expected values")
+            print("  Continuing with benchmark anyway...")
+
+        verification_table = format_verification_table(verification_results)
+
+    # Generate config matrix for report
+    config_matrix_md = generate_config_matrix(config)
 
     # Get driver
     if workload not in DRIVERS:
@@ -136,13 +167,17 @@ def run_benchmark(
     # Print summary
     print_summary(benchmark_result)
 
-    # Generate report
+    # =========================================================================
+    # GENERATE RICH REPORT
+    # =========================================================================
     print("\n--- Generating Report ---")
     report = generate_report(
         benchmark_result=benchmark_result,
         system_info=system_info,
         diagnostics=diagnostic_outputs,
         config=config,
+        verification_table=verification_table,
+        config_matrix=config_matrix_md,
     )
 
     # Save report
@@ -230,6 +265,11 @@ Examples:
         action="store_true",
         help="Skip AI analysis"
     )
+    parser.add_argument(
+        "--skip-verify",
+        action="store_true",
+        help="Skip config verification"
+    )
 
     args = parser.parse_args()
 
@@ -247,6 +287,7 @@ Examples:
         warmup=not args.no_warmup,
         diagnostics_only=args.diagnostics_only,
         skip_ai=args.skip_ai,
+        skip_verify=args.skip_verify,
     )
 
 

@@ -78,8 +78,12 @@ def calculate_derived_values(config: Dict[str, str]) -> Dict[str, str]:
     """
     Calculate derived values from base config.
 
-    Scales PostgreSQL settings based on hardware RAM.
-    Uses ratios from tuning.env if available, otherwise uses defaults.
+    IMPORTANT: Only calculates values that are NOT already set in tuning.env.
+    Explicit values in tuning.env take precedence over calculated values.
+
+    This allows:
+    - Generic hardware configs to auto-calculate based on RAM/vCPU
+    - Tuned workload configs to override with production-tested values
     """
     ram_gb = int(config.get('RAM_GB', 64))
     vcpu = int(config.get('VCPU', 8))
@@ -89,92 +93,73 @@ def calculate_derived_values(config: Dict[str, str]) -> Dict[str, str]:
     workload = config.get('WORKLOAD_CONTEXT', 'tpc-b')
     is_olap = workload == 'tpc-h'
 
-    # ==========================================================================
-    # SHARED_BUFFERS: Scale with RAM
-    # OLTP: ~25-31% of RAM, OLAP: ~25% of RAM
-    # ==========================================================================
-    if 'PG_SHARED_BUFFERS_RATIO' in config:
-        ratio = float(config['PG_SHARED_BUFFERS_RATIO'])
-    else:
-        ratio = 0.25 if is_olap else 0.31
-
-    shared_buffers_gb = int(ram_gb * ratio)
-    config['PG_SHARED_BUFFERS'] = f"{shared_buffers_gb}GB"
+    # Helper: only set if not already defined
+    def set_if_missing(key: str, value: str):
+        if key not in config:
+            config[key] = value
 
     # ==========================================================================
-    # WORK_MEM: Scale with RAM and connections
-    # OLTP: conservative, OLAP: aggressive
+    # SHARED_BUFFERS: Scale with RAM (only if not explicitly set)
     # ==========================================================================
-    if 'PG_WORK_MEM_RATIO' in config:
-        ratio = float(config['PG_WORK_MEM_RATIO'])
-        work_mem_mb = int((ram_gb * 1024 * ratio) / max_conn)
-    elif is_olap:
-        # OLAP: higher work_mem for sorts/hashes
-        work_mem_mb = min(512, int((ram_gb * 1024 * 0.25) / max_conn))
-    else:
-        # OLTP: conservative work_mem
-        work_mem_mb = max(16, int((ram_gb * 1024 * 0.05) / max_conn))
+    if 'PG_SHARED_BUFFERS' not in config:
+        if 'PG_SHARED_BUFFERS_RATIO' in config:
+            ratio = float(config['PG_SHARED_BUFFERS_RATIO'])
+        else:
+            ratio = 0.25 if is_olap else 0.31
+        shared_buffers_gb = int(ram_gb * ratio)
+        config['PG_SHARED_BUFFERS'] = f"{shared_buffers_gb}GB"
 
-    config['PG_WORK_MEM'] = f"{work_mem_mb}MB"
-
-    # ==========================================================================
-    # EFFECTIVE_CACHE_SIZE: ~70% of RAM
-    # ==========================================================================
-    effective_cache_gb = int(ram_gb * 0.70)
-    config['PG_EFFECTIVE_CACHE_SIZE'] = f"{effective_cache_gb}GB"
+    # Parse shared_buffers for derived calculations
+    sb_match = re.match(r'^(\d+)GB$', config.get('PG_SHARED_BUFFERS', '20GB'))
+    shared_buffers_gb = int(sb_match.group(1)) if sb_match else 20
 
     # ==========================================================================
-    # MAINTENANCE_WORK_MEM: Scale with RAM
+    # WORK_MEM: Scale with RAM and connections (only if not explicitly set)
     # ==========================================================================
-    maint_mem_mb = min(2048, max(256, int(ram_gb * 16)))
-    config['PG_MAINTENANCE_WORK_MEM'] = f"{maint_mem_mb}MB"
+    if 'PG_WORK_MEM' not in config:
+        if 'PG_WORK_MEM_RATIO' in config:
+            ratio = float(config['PG_WORK_MEM_RATIO'])
+            work_mem_mb = int((ram_gb * 1024 * ratio) / max_conn)
+        elif is_olap:
+            work_mem_mb = min(512, int((ram_gb * 1024 * 0.25) / max_conn))
+        else:
+            work_mem_mb = max(16, int((ram_gb * 1024 * 0.05) / max_conn))
+        config['PG_WORK_MEM'] = f"{work_mem_mb}MB"
 
     # ==========================================================================
-    # WAL_BUFFERS: Scale with shared_buffers
+    # Other derived values (only if not explicitly set)
     # ==========================================================================
-    wal_buffers_mb = min(256, max(64, shared_buffers_gb * 8))
-    config['PG_WAL_BUFFERS'] = f"{wal_buffers_mb}MB"
+    set_if_missing('PG_EFFECTIVE_CACHE_SIZE', f"{int(ram_gb * 0.70)}GB")
+    set_if_missing('PG_MAINTENANCE_WORK_MEM', f"{min(2048, max(256, int(ram_gb * 16)))}MB")
+    set_if_missing('PG_WAL_BUFFERS', f"{min(256, max(64, shared_buffers_gb * 8))}MB")
+    set_if_missing('PG_MAX_WAL_SIZE', f"{min(100, max(16, ram_gb * 2)) if not is_olap else 16}GB")
 
-    # ==========================================================================
-    # MAX_WAL_SIZE: Scale with RAM/workload
-    # ==========================================================================
-    max_wal_gb = min(100, max(16, ram_gb * 2)) if not is_olap else 16
-    config['PG_MAX_WAL_SIZE'] = f"{max_wal_gb}GB"
-
-    # ==========================================================================
-    # PARALLEL WORKERS: Based on vCPU
-    # ==========================================================================
-    config['PG_MAX_WORKER_PROCESSES'] = str(vcpu)
-    config['PG_MAX_PARALLEL_WORKERS'] = str(vcpu)
+    # Parallel workers
+    set_if_missing('PG_MAX_WORKER_PROCESSES', str(vcpu))
+    set_if_missing('PG_MAX_PARALLEL_WORKERS', str(vcpu))
     if is_olap:
-        config['PG_MAX_PARALLEL_WORKERS_PER_GATHER'] = str(vcpu)
+        set_if_missing('PG_MAX_PARALLEL_WORKERS_PER_GATHER', str(vcpu))
     else:
-        config['PG_MAX_PARALLEL_WORKERS_PER_GATHER'] = str(max(2, vcpu // 2))
+        set_if_missing('PG_MAX_PARALLEL_WORKERS_PER_GATHER', str(max(2, vcpu // 2)))
+
+    # Background writer
+    set_if_missing('PG_BGWRITER_LRU_MAXPAGES', str(500 if vcpu <= 4 else 1000))
+
+    # Autovacuum
+    set_if_missing('PG_AUTOVACUUM_MAX_WORKERS', str(max(2, min(4, vcpu // 2))))
 
     # ==========================================================================
-    # BGWRITER: Scale with vCPU
-    # ==========================================================================
-    bgwriter_maxpages = 500 if vcpu <= 4 else 1000
-    config['PG_BGWRITER_LRU_MAXPAGES'] = str(bgwriter_maxpages)
-
-    # ==========================================================================
-    # AUTOVACUUM WORKERS: Scale with vCPU
-    # ==========================================================================
-    autovac_workers = max(2, min(4, vcpu // 2))
-    config['PG_AUTOVACUUM_MAX_WORKERS'] = str(autovac_workers)
-
-    # ==========================================================================
-    # HUGEPAGES: Calculate from shared_buffers
+    # HUGEPAGES: Calculate from shared_buffers (only if not explicitly set)
     # Formula: (GB * 1024 / 2MB) * 1.07 overhead
     # ==========================================================================
-    hugepages = int((shared_buffers_gb * 1024 / 2) * 1.07)
-    config['VM_NR_HUGEPAGES'] = str(hugepages)
+    if 'VM_NR_HUGEPAGES' not in config:
+        hugepages = int((shared_buffers_gb * 1024 / 2) * 1.07)
+        config['VM_NR_HUGEPAGES'] = str(hugepages)
 
     # ==========================================================================
-    # PGBENCH_SCALE: Fit dataset in shared_buffers (~16MB per scale)
+    # PGBENCH_SCALE: Only auto-calculate if not set
     # ==========================================================================
-    if 'PGBENCH_SCALE' not in config or config.get('PGBENCH_SCALE_AUTO', 'true') == 'true':
-        # ~16MB per scale factor, fit 80% in shared_buffers
+    if 'PGBENCH_SCALE' not in config:
         pgbench_scale = int((shared_buffers_gb * 1024 * 0.8) / 16)
         config['PGBENCH_SCALE'] = str(pgbench_scale)
 
