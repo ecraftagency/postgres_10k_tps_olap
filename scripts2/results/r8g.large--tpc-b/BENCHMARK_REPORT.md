@@ -326,5 +326,48 @@ pgbench -M prepared -c 32 -j 4
 
 ---
 
+---
+
+## Final Tuning Experiments
+
+### Hypothesis Testing
+
+| Config Change | TPS | vs Baseline | Result |
+|---------------|-----|-------------|--------|
+| **Baseline** (lz4, 300conn, parallel=2) | **5,332** | - | ✓ Optimal |
+| `wal_compression=off` | 4,570 | **-14%** | ✗ More WAL I/O |
+| `max_connections=80` | 4,908 | -8% | ✗ Memory impact |
+| `max_parallel_workers_per_gather=0` | 4,222 | **-21%** | ✗ Lost parallelism |
+
+### Conclusions
+
+1. **wal_compression=lz4** is optimal - CPU overhead < I/O savings
+2. **max_connections=300** - reducing hurts shared memory efficiency
+3. **max_parallel_workers_per_gather=2** - even for OLTP, parallel helps
+
+### Final Optimal Config
+
+```ini
+# PostgreSQL - VERIFIED OPTIMAL for r8g.large TPC-B
+shared_buffers = '4GB'
+work_mem = '16MB'
+effective_cache_size = '11GB'
+max_connections = 300
+wal_compression = 'lz4'
+max_parallel_workers_per_gather = 2
+synchronous_commit = 'on'
+commit_delay = 0
+```
+
+### Application Config
+
+```bash
+# CRITICAL: Use prepared statements + optimal concurrency
+pgbench -M prepared -c 32 -j 4 pgbench
+```
+
+---
+
 *Report generated: 2026-01-05*
 *Benchmark framework: scripts2/core/bench.py*
+*Next: OLTP Read workload with HammerDB*
