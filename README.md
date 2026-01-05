@@ -1,308 +1,71 @@
-# PostgreSQL 10K+ TPS OLTP on AWS EBS gp3 RAID10
+# PostgreSQL Benchmark Framework
 
-Đạt **11,469 TPS** trên PostgreSQL với chi phí chỉ **$249/tháng** - tiết kiệm 75-90% so với io2 Block Express.
+High-performance PostgreSQL benchmarking on AWS with EBS gp3 RAID10.
 
-## Key Results
+**Latest Results:** 19,554 TPS on r8g.2xlarge ($290/mo) - see [results](scripts2/results/)
 
-| Metric | Value |
-|--------|-------|
-| **TPS** | 11,469 |
-| **Latency** | 8.70 ms avg |
-| **Cost** | $249/month |
-| **vs io2** | 75% savings |
+## What This Is
 
-```
-Tuning Journey:
-Baseline     ████████░░░░░░░░░░░░  7,000 TPS
-OS Tuned     ████████████░░░░░░░░  9,912 TPS (+41%)
-PG Tuned     ████████████████████ 11,469 TPS (+64%)
-```
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    AWS c8g.2xlarge                              │
-│                  (8 vCPU, 16GB RAM)                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   ┌─────────────────────────┐   ┌─────────────────────────┐    │
-│   │      DATA Volume        │   │       WAL Volume        │    │
-│   │      RAID10 /data       │   │       RAID10 /wal       │    │
-│   ├─────────────────────────┤   ├─────────────────────────┤    │
-│   │  8× EBS gp3 (50GB each) │   │  8× EBS gp3 (30GB each) │    │
-│   │  Chunk: 64KB            │   │  Chunk: 256KB           │    │
-│   │  Purpose: Random I/O    │   │  Purpose: Sequential    │    │
-│   └─────────────────────────┘   └─────────────────────────┘    │
-│                                                                 │
-│   Total: 16 EBS volumes, ~320GB usable                         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+A complete framework for:
+- **Infrastructure as Code** - Terraform modules for different topologies
+- **Automated Benchmarking** - Python framework with TPC-B/C/H workloads
+- **Config Verification** - Ensure settings match expectations before benchmarking
+- **Rich Reporting** - Markdown reports with AI analysis
 
 ## Quick Start
 
-### 1. Provision Infrastructure
-
 ```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your settings
+# 1. Deploy infrastructure
+cd terraform/topologies/single-node
+terraform apply -var-file=../../hardware/r8g.2xlarge.tfvars
 
-terraform init
-terraform plan
-terraform apply
-```
+# 2. Sync scripts to server
+rsync -avz scripts2/ ubuntu@<IP>:~/scripts2/
 
-### 2. Setup Server
-
-```bash
-# Copy scripts to server
-scp -r scripts/ ubuntu@<IP>:~/
-
-# SSH and run setup
+# 3. Run benchmark
 ssh ubuntu@<IP>
-
-# Install dependencies
-sudo ./scripts/00-deps.sh
-
-# OS tuning
-sudo ./scripts/01-os-tuning.sh
-
-# RAID10 setup
-sudo ./scripts/02-raid-setup.sh
-
-# Disk tuning
-sudo ./scripts/03-disk-tuning.sh
-
-# PostgreSQL installation
-sudo ./scripts/05-db-install.sh
-```
-
-### 3. Run Benchmarks
-
-```bash
-# Disk benchmarks (scenarios 1-10)
-sudo python3 scripts/bench.py --run 1   # Sync latency
-sudo python3 scripts/bench.py --run 2   # Mixed IOPS
-# ... etc
-
-# PostgreSQL benchmark (scenario 11)
-sudo python3 scripts/bench.py --run 11  # pgbench TPC-B
+sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
 ```
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [MATH.MD](docs/MATH.MD) | Mathematical formulas for all tuning decisions |
-| [SYSTEM_CONFIG.MD](docs/SYSTEM_CONFIG.MD) | OS and disk configuration |
-| [DB_CONFIG.MD](docs/DB_CONFIG.MD) | PostgreSQL parameter tuning |
-| [POSTGRES_BENCHMARK.MD](docs/POSTGRES_BENCHMARK.MD) | Complete case study |
-| [DISK_BENCHMARK.MD](docs/DISK_BENCHMARK.MD) | FIO benchmark strategy |
-
-## Key Tuning Parameters
-
-### OS (sysctl)
-
-```bash
-vm.dirty_ratio = 4                    # Max 4% RAM dirty (anti-stall)
-vm.dirty_background_ratio = 1         # Start flush at 1%
-vm.dirty_writeback_centisecs = 100    # Flush every 1s
-```
-
-### PostgreSQL
-
-```ini
-# Memory
-shared_buffers = 4GB
-effective_cache_size = 12GB
-
-# Background Writer (THE SECRET SAUCE)
-bgwriter_delay = 10ms                 # 100 rounds/sec (not 5)
-bgwriter_lru_maxpages = 1000          # 8MB/round capacity
-bgwriter_lru_multiplier = 10.0        # Aggressive cleaning
-
-# WAL
-wal_buffers = 64MB
-max_wal_size = 48GB
-checkpoint_timeout = 30min
-
-# Group Commit
-commit_delay = 50                     # 50µs wait for batching
-commit_siblings = 10
-```
-
-## Cost Comparison
-
-| Solution | Monthly Cost | TPS | Cost/TPS |
-|----------|-------------|-----|----------|
-| **This (RAID10 gp3)** | **$249** | 11,469 | **$0.022** |
-| io2 Block Express | $1,002 | ~12,000 | $0.084 |
-| **Savings** | **75%** | - | - |
-
-With Spot instances: **$103/month** (90% savings)
-
-## Benchmark Results
-
-### Disk I/O (FIO)
-
-| Scenario | Metric | Result |
-|----------|--------|--------|
-| Sync Latency | QD1 + fsync | **1.858 ms** |
-| Random Read | QD1 | **0.589 ms** |
-| Mixed IOPS | 70R:30W | **18,700** |
-| Seq Write BW | QD16 | **509 MB/s** |
-| Seq Read BW | QD16 | **1,003 MB/s** |
-
-### PostgreSQL (pgbench TPC-B)
-
-| Phase | TPS | Latency | Change |
-|-------|-----|---------|--------|
-| Baseline | 7,000 | 15 ms | - |
-| OS Tuned | 9,912 | 10.05 ms | +41% |
-| **PG Tuned** | **11,469** | **8.70 ms** | **+64%** |
-
-## The Math Behind Tuning
-
-Every config value has a mathematical justification:
-
-```
-# Why dirty_ratio = 4%?
-Max_Dirty = V_disk × T_stall = 509 MB/s × 1s = 509 MB
-Ratio = 509 / 16384 × 100 = 3.1% → Choose 4%
-
-# Why bgwriter_delay = 10ms?
-V_dirty = 11,500 TPS × 0.1 × 8KB = 9 MB/s
-V_clean_default = 100 pages / 0.2s = 4 MB/s → FAIL!
-V_clean_tuned = 1000 pages / 0.01s = 800 MB/s → PASS!
-
-# Why can we achieve 11,500 TPS with 1.8ms sync latency?
-N_batch = TPS × T_sync / 1000 = 11,469 × 1.858 / 1000 = 21
-→ Group commit batches ~21 transactions per fsync!
-```
-
-See [MATH.MD](docs/MATH.MD) for complete mathematical derivations.
-
-## Hardware Context System
-
-Configuration is organized by **hardware context** - enabling benchmarks across different hardware configurations.
-
-### Parameter Classification
-
-| Parameter Type | Example | Source |
-|---------------|---------|--------|
-| **Calculated** | `shared_buffers = 25% RAM` | Hardware specs |
-| **Calculated** | `max_parallel_workers = vCPU` | Hardware specs |
-| **Calculated** | `effective_io_concurrency` | RAID disk count |
-| **Experience-tuned** | `bgwriter_delay = 10ms` | Benchmarking |
-| **Experience-tuned** | `commit_delay = 50` | Benchmarking |
-| **Experience-tuned** | `vm.dirty_background_ratio = 1` | I/O cliff analysis |
-
-### Naming Convention
-```
-<instance_type>.<net_gbps>.<ebs_gbps>.<disk_count>disk.<raid_level>
-```
-Example: `c8gb.2xlarge.33.25.8disk.raid10`
-
-### Generate Config for New Hardware
-```bash
-cd scripts
-./hardware/generate-config.sh r8g.4xlarge 16 8 raid10
-# Creates: hardware/r8g.4xlarge.15.10.16disk.raid10/config.env
-```
-
-## Golden Rule: Config Change Workflow
-
-> **KHÔNG SHORTCUT!** Luôn chạy scripts đầy đủ, không apply từng setting thủ công.
-
-### Checklist
-
-```bash
-# 0. Set variables
-export IP=<server-ip>
-export CTX=<hardware-context>  # e.g., r8g.2xlarge.15.10.8disk.raid10
-
-# 1. Edit config locally
-vim scripts/hardware/$CTX/config.env
-
-# 2. Upload via rsync (KHÔNG dùng scp)
-rsync -avz -e "ssh -i ~/.ssh/id_rsa" scripts/ ubuntu@$IP:/home/ubuntu/scripts/
-
-# 3. Create symlink
-ssh -i ~/.ssh/id_rsa ubuntu@$IP "ln -sf /home/ubuntu/scripts/hardware/$CTX/config.env /home/ubuntu/scripts/config.env"
-
-# 4. Apply ALL scripts (KHÔNG skip)
-ssh -i ~/.ssh/id_rsa ubuntu@$IP "export HARDWARE_CONTEXT=$CTX && sudo -E bash /home/ubuntu/scripts/01-os-tuning.sh"
-ssh -i ~/.ssh/id_rsa ubuntu@$IP "export HARDWARE_CONTEXT=$CTX && sudo -E bash /home/ubuntu/scripts/03-disk-tuning.sh"
-ssh -i ~/.ssh/id_rsa ubuntu@$IP "sudo systemctl restart postgresql@16-main"
-
-# 5. Verify (PHẢI pass 100%)
-ssh -i ~/.ssh/id_rsa ubuntu@$IP "export HARDWARE_CONTEXT=$CTX && sudo -E bash /home/ubuntu/scripts/verify-config.sh"
-
-# 6. Benchmark
-ssh -i ~/.ssh/id_rsa ubuntu@$IP "cd /home/ubuntu/scripts && sudo python3 bench.py --run 11"
-
-# 7. Download results
-rsync -avz -e "ssh -i ~/.ssh/id_rsa" ubuntu@$IP:/home/ubuntu/scripts/results/ scripts/results/
-```
-
-### Quy tắc
-
-| # | Rule | Lý do |
-|---|------|-------|
-| 1 | **Luôn chạy scripts, không ALTER SYSTEM thủ công** | Scripts đảm bảo apply đầy đủ từ config.env |
-| 2 | **rsync, không scp** | Hiệu quả hơn, giữ permissions |
-| 3 | **SSH key: ~/.ssh/id_rsa** | Consistent across all commands |
-| 4 | **verify-config.sh phải pass 100%** | Không benchmark khi config sai |
-| 5 | **Restart PostgreSQL sau khi apply** | shared_buffers, huge_pages cần restart |
-
-### Scaling Guide
-
-| RAM | shared_buffers | HugePages | effective_cache_size |
-|-----|----------------|-----------|---------------------|
-| 32GB | 8GB | 4400 | 22GB |
-| 64GB | 20GB | 11000 | 44GB |
-| 128GB | 32GB | 17600 | 90GB |
-
-| vCPU | max_workers | parallel_per_gather | autovacuum_workers |
-|------|-------------|--------------------|--------------------|
-| 4 | 4 | 2 | 2 |
-| 8 | 8 | 4 | 4 |
-| 16 | 16 | 8 | 6 |
+| [Architecture](docs2/ARCHITECTURE.md) | System design, directory structure, context naming |
+| [Quick Start](docs2/QUICKSTART.md) | Step-by-step setup guide |
+| [Benchmarking](docs2/BENCHMARKING.md) | Running benchmarks, interpreting results |
+| [Configuration](docs2/CONFIGURATION.md) | All parameters reference |
+| [Tuning](docs2/TUNING.md) | Mathematical rationale for every setting |
+| [Terraform](terraform/README.md) | Infrastructure deployment guide |
 
 ## Project Structure
 
 ```
 .
-├── INFRA.md                    # Infrastructure configuration
-├── docs/
-│   ├── MATH.MD                 # Mathematical formulas
-│   ├── SYSTEM_CONFIG.MD        # OS/disk configuration
-│   ├── DB_CONFIG.MD            # PostgreSQL tuning
-│   ├── POSTGRES_BENCHMARK.MD   # Case study
-│   └── DISK_BENCHMARK.MD       # FIO benchmark guide
-├── scripts/
-│   ├── hardware/               # Hardware contexts
-│   │   ├── _template/          # Config template
-│   │   ├── generate-config.sh  # Config generator
-│   │   └── c8gb.2xlarge.33.25.8disk.raid10/
-│   │       ├── config.env      # Tuning parameters
-│   │       ├── proxy/          # PgCat config
-│   │       ├── topology.yaml   # Infrastructure spec
-│   │       └── TUNING_NOTES.md # Tuning rationale
-│   ├── load-config.sh          # Config loader
-│   ├── 01-os-tuning.sh         # sysctl, limits
-│   ├── 02-raid-setup.sh        # mdadm RAID10
-│   ├── 03-disk-tuning.sh       # XFS, read_ahead
-│   ├── 05-db-install.sh        # PostgreSQL 16
-│   ├── bench.py                # Benchmark runner
-│   └── scenarios.json          # Benchmark scenarios
-└── terraform/
-    ├── main.tf                 # EC2 + EBS
-    ├── postgres.tf             # DB instance
-    ├── proxy.tf                # PgCat proxy
-    └── variables.tf            # Configuration
+├── terraform/
+│   ├── modules/           # Reusable: network, security, postgres-node, pgcat-node
+│   ├── topologies/        # single-node, proxy-single, primary-replica
+│   └── hardware/          # r8g.xlarge.tfvars, r8g.2xlarge.tfvars, ...
+│
+├── scripts2/
+│   ├── core/              # bench.py, reporter.py, config_loader.py
+│   ├── drivers/           # pgbench, hammerdb, fio
+│   ├── hardware/          # r8g.xlarge/, r8g.2xlarge/ (hardware.env)
+│   ├── workloads/         # tpc-b/, tpc-c/, tpc-h/ (tuning.env)
+│   ├── setup/             # OS tuning, RAID setup
+│   └── results/           # Benchmark reports
+│
+└── docs2/                 # Documentation
+```
+
+## Context Naming
+
+Three-dimensional context: `{topology}/{hardware}--{workload}`
+
+```
+single-node/r8g.2xlarge--tpc-b
+proxy-single/r8g.4xlarge--tpc-c
+primary-replica/r8g.2xlarge--tpc-h
 ```
 
 ## Requirements
@@ -315,9 +78,3 @@ rsync -avz -e "ssh -i ~/.ssh/id_rsa" ubuntu@$IP:/home/ubuntu/scripts/results/ sc
 ## License
 
 MIT
-
-## References
-
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/16/)
-- [AWS EBS gp3 Pricing](https://aws.amazon.com/ebs/pricing/)
-- [Linux Kernel vm.dirty_ratio](https://www.kernel.org/doc/Documentation/sysctl/vm.txt)
