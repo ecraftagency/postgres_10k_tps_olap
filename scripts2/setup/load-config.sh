@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Config Loader for scripts2 - Sources hardware.env + tuning.env
+# Config Loader for scripts2 - Uses Python config_loader for calculations
 # =============================================================================
 # Usage: source load-config.sh
 #
@@ -8,7 +8,8 @@
 #   HARDWARE_CONTEXT  - Hardware context name (e.g., r8g.2xlarge)
 #   WORKLOAD_CONTEXT  - Workload context name (e.g., tpc-b)
 #
-# This script merges hardware.env + tuning.env and exports all variables.
+# This script calls Python config_loader to merge hardware.env + tuning.env
+# and calculate derived values (shared_buffers, hugepages, etc.)
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,36 +19,34 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 HARDWARE_CONTEXT="${HARDWARE_CONTEXT:-r8g.2xlarge}"
 WORKLOAD_CONTEXT="${WORKLOAD_CONTEXT:-tpc-b}"
 
-# Config file paths
-HARDWARE_ENV="${ROOT_DIR}/hardware/${HARDWARE_CONTEXT}/hardware.env"
-TUNING_ENV="${ROOT_DIR}/workloads/${WORKLOAD_CONTEXT}/tuning.env"
-
-# Check hardware.env exists
-if [ ! -f "$HARDWARE_ENV" ]; then
-    echo "ERROR: hardware.env not found: $HARDWARE_ENV"
-    echo ""
-    echo "Available hardware contexts:"
-    ls -1 "${ROOT_DIR}/hardware/" 2>/dev/null
-    exit 1
-fi
-
-# Check tuning.env exists
-if [ ! -f "$TUNING_ENV" ]; then
-    echo "ERROR: tuning.env not found: $TUNING_ENV"
-    echo ""
-    echo "Available workload contexts:"
-    ls -1 "${ROOT_DIR}/workloads/" 2>/dev/null
-    exit 1
-fi
-
 echo "[load-config] Hardware: $HARDWARE_CONTEXT"
 echo "[load-config] Workload: $WORKLOAD_CONTEXT"
 
-# Source hardware.env first (base config)
-source "$HARDWARE_ENV"
+# Check if Python config_loader exists
+CONFIG_LOADER="${ROOT_DIR}/core/config_loader.py"
+if [ ! -f "$CONFIG_LOADER" ]; then
+    echo "ERROR: config_loader.py not found: $CONFIG_LOADER"
+    exit 1
+fi
 
-# Source tuning.env (overrides and workload-specific settings)
-source "$TUNING_ENV"
+# Generate config using Python and export as shell variables
+CONFIG_OUTPUT=$(python3 "$CONFIG_LOADER" "$HARDWARE_CONTEXT" "$WORKLOAD_CONTEXT" 2>&1)
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to load config"
+    echo "$CONFIG_OUTPUT"
+    exit 1
+fi
+
+# Parse JSON output and export each key=value
+eval $(python3 -c "
+import json
+import sys
+config = json.loads('''$CONFIG_OUTPUT''')
+for key, value in config.items():
+    # Escape special characters in value
+    value = str(value).replace(\"'\", \"'\\\"'\\\"'\")
+    print(f\"export {key}='{value}'\")
+")
 
 # Set context metadata
 export HARDWARE_CONTEXT
