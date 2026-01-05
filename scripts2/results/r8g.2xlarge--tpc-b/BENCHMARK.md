@@ -10,7 +10,7 @@
 
 | Metric | Value |
 |--------|-------|
-| **TPS** | **19,554** |
+| **TPS** | **19,557** |
 | TPS Peak | 19,967 |
 | Latency Avg | 5.11ms |
 | Latency Stddev | 1.31ms |
@@ -191,9 +191,9 @@
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| PG_MAX_WAL_SIZE | 100GB | No checkpoint during bench |
+| PG_MAX_WAL_SIZE | 50GB | Balanced for production |
 | PG_MIN_WAL_SIZE | 4GB | Keep WAL preallocated |
-| PG_CHECKPOINT_TIMEOUT | 1h | Defer checkpoints |
+| PG_CHECKPOINT_TIMEOUT | 30min | More frequent for recovery |
 | PG_CHECKPOINT_COMPLETION_TARGET | 0.9 | Spread I/O |
 
 ### 2.17 PostgreSQL - Sync & Group Commit (3)
@@ -279,7 +279,7 @@ At 19.5K TPS: ~700 WAL writes/s × ~26KB = 18MB/s (3% of 10Gbps EBS)
 ```
 CPU: 8 cores × ~2,500 TPS/core = 20,000 TPS
 WAL fsync: ~2-3ms latency = ~20,000 TPS limit
-Achieved: 19,554 TPS (98% of theoretical)
+Achieved: 19,557 TPS (98% of theoretical)
 ```
 
 ---
@@ -328,6 +328,22 @@ Achieved: 19,554 TPS (98% of theoretical)
 - md1 (WAL): ~690 w/s @ 18MB/s, 70% util
 - CPU: ~70% user, 30% sys
 
+### Run 4: Production Config (Checkpoint Tuning)
+**Date**: 2026-01-05 10:13
+**Report**: `20260105-101311.md`
+
+**Changes**:
+- max_wal_size: 100GB → 50GB
+- checkpoint_timeout: 1h → 30min
+
+| Metric | Value | vs Run 3 |
+|--------|-------|----------|
+| TPS | **19,557** | +0.02% |
+| Latency | 5.11ms | 0% |
+
+**Conclusion**: Reduced WAL size/checkpoint has **no impact** on TPS.
+More frequent checkpoints improve recovery time without performance penalty.
+
 ---
 
 ## 5. Key Findings
@@ -335,7 +351,7 @@ Achieved: 19,554 TPS (98% of theoretical)
 ### 5.1 commit_delay=0 Optimal for EBS
 
 ```
-commit_delay=0:  19,554 TPS
+commit_delay=0:  19,557 TPS
 commit_delay=50: 16,456 TPS (-16%)
 ```
 
@@ -360,7 +376,7 @@ Cannot exceed ~20K TPS with synchronous_commit=on.
 | Instance | TPS | Price/mo | TPS/$ |
 |----------|-----|----------|-------|
 | c8gb.8xlarge | 40,752 | $833 | 48.9 |
-| **r8g.2xlarge** | 19,554 | $290 | **67.4** |
+| **r8g.2xlarge** | 19,557 | $290 | **67.4** |
 
 **r8g.2xlarge delivers 38% better value per dollar.**
 
@@ -370,7 +386,8 @@ Cannot exceed ~20K TPS with synchronous_commit=on.
 
 | File | Size | Content |
 |------|------|---------|
-| `20260105-095733.md` | 44KB | Full diagnostics (iostat, mpstat, pg_stats) |
+| `20260105-095733.md` | 44KB | Run 3: Full diagnostics |
+| `20260105-101311.md` | 44KB | Run 4: Checkpoint tuning |
 | `BENCHMARK.md` | this | Config matrix + journal |
 
 ---
