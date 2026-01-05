@@ -75,20 +75,112 @@ def load_config(hardware: str, workload: str) -> Dict[str, str]:
 
 
 def calculate_derived_values(config: Dict[str, str]) -> Dict[str, str]:
-    """Calculate derived values from base config"""
+    """
+    Calculate derived values from base config.
 
-    # Calculate HugePages if not explicitly set
-    if 'VM_NR_HUGEPAGES' not in config and 'PG_SHARED_BUFFERS' in config:
-        shared_buffers = config['PG_SHARED_BUFFERS']
-        # Parse shared_buffers (e.g., "20GB" -> 20)
-        match = re.match(r'^(\d+)GB$', shared_buffers)
-        if match:
-            gb = int(match.group(1))
-            # Formula: (GB * 1024 / 2MB) * 1.07 overhead
-            hugepages = int((gb * 1024 / 2) * 1.07)
-            config['VM_NR_HUGEPAGES'] = str(hugepages)
+    Scales PostgreSQL settings based on hardware RAM.
+    Uses ratios from tuning.env if available, otherwise uses defaults.
+    """
+    ram_gb = int(config.get('RAM_GB', 64))
+    vcpu = int(config.get('VCPU', 8))
+    max_conn = int(config.get('PG_MAX_CONNECTIONS', 300))
 
-    # Calculate result directory
+    # Get workload type for OLTP vs OLAP tuning
+    workload = config.get('WORKLOAD_CONTEXT', 'tpc-b')
+    is_olap = workload == 'tpc-h'
+
+    # ==========================================================================
+    # SHARED_BUFFERS: Scale with RAM
+    # OLTP: ~25-31% of RAM, OLAP: ~25% of RAM
+    # ==========================================================================
+    if 'PG_SHARED_BUFFERS_RATIO' in config:
+        ratio = float(config['PG_SHARED_BUFFERS_RATIO'])
+    else:
+        ratio = 0.25 if is_olap else 0.31
+
+    shared_buffers_gb = int(ram_gb * ratio)
+    config['PG_SHARED_BUFFERS'] = f"{shared_buffers_gb}GB"
+
+    # ==========================================================================
+    # WORK_MEM: Scale with RAM and connections
+    # OLTP: conservative, OLAP: aggressive
+    # ==========================================================================
+    if 'PG_WORK_MEM_RATIO' in config:
+        ratio = float(config['PG_WORK_MEM_RATIO'])
+        work_mem_mb = int((ram_gb * 1024 * ratio) / max_conn)
+    elif is_olap:
+        # OLAP: higher work_mem for sorts/hashes
+        work_mem_mb = min(512, int((ram_gb * 1024 * 0.25) / max_conn))
+    else:
+        # OLTP: conservative work_mem
+        work_mem_mb = max(16, int((ram_gb * 1024 * 0.05) / max_conn))
+
+    config['PG_WORK_MEM'] = f"{work_mem_mb}MB"
+
+    # ==========================================================================
+    # EFFECTIVE_CACHE_SIZE: ~70% of RAM
+    # ==========================================================================
+    effective_cache_gb = int(ram_gb * 0.70)
+    config['PG_EFFECTIVE_CACHE_SIZE'] = f"{effective_cache_gb}GB"
+
+    # ==========================================================================
+    # MAINTENANCE_WORK_MEM: Scale with RAM
+    # ==========================================================================
+    maint_mem_mb = min(2048, max(256, int(ram_gb * 16)))
+    config['PG_MAINTENANCE_WORK_MEM'] = f"{maint_mem_mb}MB"
+
+    # ==========================================================================
+    # WAL_BUFFERS: Scale with shared_buffers
+    # ==========================================================================
+    wal_buffers_mb = min(256, max(64, shared_buffers_gb * 8))
+    config['PG_WAL_BUFFERS'] = f"{wal_buffers_mb}MB"
+
+    # ==========================================================================
+    # MAX_WAL_SIZE: Scale with RAM/workload
+    # ==========================================================================
+    max_wal_gb = min(100, max(16, ram_gb * 2)) if not is_olap else 16
+    config['PG_MAX_WAL_SIZE'] = f"{max_wal_gb}GB"
+
+    # ==========================================================================
+    # PARALLEL WORKERS: Based on vCPU
+    # ==========================================================================
+    config['PG_MAX_WORKER_PROCESSES'] = str(vcpu)
+    config['PG_MAX_PARALLEL_WORKERS'] = str(vcpu)
+    if is_olap:
+        config['PG_MAX_PARALLEL_WORKERS_PER_GATHER'] = str(vcpu)
+    else:
+        config['PG_MAX_PARALLEL_WORKERS_PER_GATHER'] = str(max(2, vcpu // 2))
+
+    # ==========================================================================
+    # BGWRITER: Scale with vCPU
+    # ==========================================================================
+    bgwriter_maxpages = 500 if vcpu <= 4 else 1000
+    config['PG_BGWRITER_LRU_MAXPAGES'] = str(bgwriter_maxpages)
+
+    # ==========================================================================
+    # AUTOVACUUM WORKERS: Scale with vCPU
+    # ==========================================================================
+    autovac_workers = max(2, min(4, vcpu // 2))
+    config['PG_AUTOVACUUM_MAX_WORKERS'] = str(autovac_workers)
+
+    # ==========================================================================
+    # HUGEPAGES: Calculate from shared_buffers
+    # Formula: (GB * 1024 / 2MB) * 1.07 overhead
+    # ==========================================================================
+    hugepages = int((shared_buffers_gb * 1024 / 2) * 1.07)
+    config['VM_NR_HUGEPAGES'] = str(hugepages)
+
+    # ==========================================================================
+    # PGBENCH_SCALE: Fit dataset in shared_buffers (~16MB per scale)
+    # ==========================================================================
+    if 'PGBENCH_SCALE' not in config or config.get('PGBENCH_SCALE_AUTO', 'true') == 'true':
+        # ~16MB per scale factor, fit 80% in shared_buffers
+        pgbench_scale = int((shared_buffers_gb * 1024 * 0.8) / 16)
+        config['PGBENCH_SCALE'] = str(pgbench_scale)
+
+    # ==========================================================================
+    # RESULT_DIR
+    # ==========================================================================
     if 'HARDWARE_CONTEXT' in config and 'WORKLOAD_CONTEXT' in config:
         context_id = f"{config.get('HARDWARE_CONTEXT', 'unknown')}--{config.get('WORKLOAD_CONTEXT', 'unknown')}"
         config['RESULT_DIR'] = str(SCRIPTS_DIR / "results" / context_id)
