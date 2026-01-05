@@ -31,11 +31,11 @@ sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](docs2/ARCHITECTURE.md) | System design, directory structure, context naming |
-| [Quick Start](docs2/QUICKSTART.md) | Step-by-step setup guide |
-| [Benchmarking](docs2/BENCHMARKING.md) | Running benchmarks, interpreting results |
-| [Configuration](docs2/CONFIGURATION.md) | All parameters reference |
-| [Tuning](docs2/TUNING.md) | Mathematical rationale for every setting |
+| [Architecture](docs/ARCHITECTURE.md) | System design, directory structure, context naming |
+| [Quick Start](docs/QUICKSTART.md) | Step-by-step setup guide |
+| [Benchmarking](docs/BENCHMARKING.md) | Running benchmarks, interpreting results |
+| [Configuration](docs/CONFIGURATION.md) | All parameters reference |
+| [Tuning](docs/TUNING.md) | Mathematical rationale for every setting |
 | [Terraform](terraform/README.md) | Infrastructure deployment guide |
 
 ## Project Structure
@@ -55,7 +55,7 @@ sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
 │   ├── setup/             # OS tuning, RAID setup
 │   └── results/           # Benchmark reports
 │
-└── docs2/                 # Documentation
+└── docs/                  # Documentation
 ```
 
 ## Context Naming
