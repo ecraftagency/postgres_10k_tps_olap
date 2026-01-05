@@ -38,7 +38,12 @@ from core.verifier import (
 )
 from drivers.base import BenchmarkResult
 from drivers.pgbench import PgbenchDriver
-from drivers.sysbench import SysbenchReadDriver, SysbenchReadWriteDriver, SysbenchWriteDriver
+from drivers.sysbench import (
+    SysbenchReadDriver,
+    SysbenchReadWriteDriver,
+    SysbenchWriteDriver,
+    SysbenchPointSelectDriver,
+)
 
 
 # Driver registry
@@ -47,6 +52,7 @@ DRIVERS = {
     "oltp-read": SysbenchReadDriver,
     "oltp-rw": SysbenchReadWriteDriver,
     "oltp-write": SysbenchWriteDriver,
+    "oltp-point": SysbenchPointSelectDriver,
 }
 
 

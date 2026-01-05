@@ -325,3 +325,9 @@ class SysbenchWriteDriver(SysbenchDriver):
     """Sysbench OLTP write-only driver"""
     def __init__(self, config: Dict[str, str]):
         super().__init__(config, "oltp_write_only")
+
+
+class SysbenchPointSelectDriver(SysbenchDriver):
+    """Sysbench OLTP point select driver - simple PK lookups"""
+    def __init__(self, config: Dict[str, str]):
+        super().__init__(config, "oltp_point_select")
