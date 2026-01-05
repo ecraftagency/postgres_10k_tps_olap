@@ -12,13 +12,32 @@ from drivers.base import BaseDriver, BenchmarkResult
 class PgbenchDriver(BaseDriver):
     """Driver for pgbench (TPC-B-like) benchmarks"""
 
+    def __init__(self, config: Dict[str, str], mode: str = "tpcb"):
+        """
+        Initialize pgbench driver.
+
+        Args:
+            config: Merged hardware + workload configuration
+            mode: Benchmark mode:
+                - tpcb: Standard TPC-B (read/write)
+                - select: SELECT-only (-S flag)
+                - connect: Connect per transaction (-C flag)
+        """
+        super().__init__(config)
+        self.mode = mode
+
     @property
     def name(self) -> str:
         return "pgbench"
 
     @property
     def benchmark_type(self) -> str:
-        return "TPC-B"
+        mode_map = {
+            "tpcb": "TPC-B",
+            "select": "TPC-B-Select",
+            "connect": "TPC-B-Connect",
+        }
+        return mode_map.get(self.mode, "TPC-B")
 
     def build_schema(self, scale: Optional[int] = None) -> bool:
         """
@@ -49,7 +68,6 @@ class PgbenchDriver(BaseDriver):
         duration: int,
         clients: int,
         threads: Optional[int] = None,
-        read_only: bool = False,
         **kwargs
     ) -> BenchmarkResult:
         """
@@ -59,7 +77,6 @@ class PgbenchDriver(BaseDriver):
             duration: Test duration in seconds
             clients: Number of concurrent clients
             threads: Number of threads (default: clients or vCPU)
-            read_only: If True, run SELECT-only workload
 
         Returns:
             BenchmarkResult with TPS and latency metrics
@@ -76,8 +93,11 @@ class PgbenchDriver(BaseDriver):
             "-P", "5",  # Progress every 5 seconds
         ]
 
-        if read_only:
-            cmd_parts.append("-S")
+        # Apply mode-specific flags
+        if self.mode == "select":
+            cmd_parts.append("-S")  # SELECT-only
+        elif self.mode == "connect":
+            cmd_parts.extend(["-S", "-C"])  # SELECT-only + Connect per txn
 
         cmd_parts.append(database)
 
@@ -192,5 +212,22 @@ class PgbenchDriver(BaseDriver):
     def warmup(self, duration: int = 30) -> bool:
         """Run warmup with SELECT-only workload"""
         print(f"  Running warmup ({duration}s)...")
-        result = self.run(duration=duration, clients=16, read_only=True)
+        # Temporarily switch to select mode for warmup
+        original_mode = self.mode
+        self.mode = "select"
+        result = self.run(duration=duration, clients=16)
+        self.mode = original_mode
         return result.success
+
+
+# Convenience classes for specific modes
+class PgbenchSelectDriver(PgbenchDriver):
+    """pgbench SELECT-only driver"""
+    def __init__(self, config: Dict[str, str]):
+        super().__init__(config, mode="select")
+
+
+class PgbenchConnectDriver(PgbenchDriver):
+    """pgbench connection storm driver (connect per transaction)"""
+    def __init__(self, config: Dict[str, str]):
+        super().__init__(config, mode="connect")

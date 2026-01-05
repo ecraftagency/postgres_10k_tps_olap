@@ -37,7 +37,7 @@ from core.verifier import (
     generate_config_matrix,
 )
 from drivers.base import BenchmarkResult
-from drivers.pgbench import PgbenchDriver
+from drivers.pgbench import PgbenchDriver, PgbenchSelectDriver, PgbenchConnectDriver
 from drivers.sysbench import (
     SysbenchReadDriver,
     SysbenchReadWriteDriver,
@@ -48,7 +48,11 @@ from drivers.sysbench import (
 
 # Driver registry
 DRIVERS = {
+    # pgbench drivers
     "tpc-b": PgbenchDriver,
+    "tpc-b-select": PgbenchSelectDriver,
+    "tpc-b-connect": PgbenchConnectDriver,
+    # sysbench drivers
     "oltp-read": SysbenchReadDriver,
     "oltp-rw": SysbenchReadWriteDriver,
     "oltp-write": SysbenchWriteDriver,
