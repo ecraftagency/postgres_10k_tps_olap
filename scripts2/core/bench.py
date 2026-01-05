@@ -38,13 +38,15 @@ from core.verifier import (
 )
 from drivers.base import BenchmarkResult
 from drivers.pgbench import PgbenchDriver
+from drivers.sysbench import SysbenchReadDriver, SysbenchReadWriteDriver, SysbenchWriteDriver
 
 
 # Driver registry
 DRIVERS = {
     "tpc-b": PgbenchDriver,
-    # "tpc-c": HammerDBDriver,  # TODO
-    # "tpc-h": HammerDBDriver,  # TODO
+    "oltp-read": SysbenchReadDriver,
+    "oltp-rw": SysbenchReadWriteDriver,
+    "oltp-write": SysbenchWriteDriver,
 }
 
 
