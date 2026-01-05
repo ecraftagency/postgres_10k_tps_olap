@@ -3,8 +3,11 @@
 Benchmark Framework - Main Entry Point
 
 Usage:
-    ./bench.py --hardware r8g.2xlarge --workload tpc-b --duration 60 --clients 100
-    ./bench.py --hardware r8g.2xlarge --workload tpc-b --diagnostics-only --duration 60
+    ./bench.py --topology single-node --hardware r8g.2xlarge --workload tpc-b
+    ./bench.py -L single-node -H r8g.2xlarge -W tpc-b --duration 60 --clients 100
+
+Context naming: {topology}/{hardware}--{workload}
+Report naming: {workload}_{timestamp}.md
 """
 import argparse
 import os
@@ -46,6 +49,7 @@ DRIVERS = {
 
 
 def run_benchmark(
+    topology: str,
     hardware: str,
     workload: str,
     duration: int = 60,
@@ -59,6 +63,7 @@ def run_benchmark(
     Run benchmark with full diagnostics.
 
     Args:
+        topology: Infrastructure topology (single-node, proxy-single, etc.)
         hardware: Hardware context name
         workload: Workload context name
         duration: Benchmark duration in seconds
@@ -71,13 +76,18 @@ def run_benchmark(
     Returns:
         Path to generated report
     """
+    # Build full context ID: topology/hardware--workload
+    context_id = f"{topology}/{hardware}--{workload}"
+
     # Load merged configuration
     print(f"\n{'='*60}")
-    print(f"BENCHMARK: {hardware}--{workload}")
+    print(f"BENCHMARK: {context_id}")
     print(f"{'='*60}")
 
     config = load_config(hardware, workload)
-    context_id = config['CONTEXT_ID']
+    # Override context_id with full path including topology
+    config['CONTEXT_ID'] = context_id
+    config['TOPOLOGY'] = topology
 
     print(f"Context: {context_id}")
     print(f"Duration: {duration}s, Clients: {clients}")
@@ -186,6 +196,7 @@ def run_benchmark(
         output_dir=output_dir,
         context_id=context_id,
         timestamp=timestamp,
+        workload=workload,
     )
     print(f"Report saved: {report_path}")
 
@@ -200,6 +211,7 @@ def run_benchmark(
                 output_dir=output_dir,
                 context_id=context_id,
                 timestamp=timestamp,
+                workload=workload,
                 suffix="_ai"
             )
             print(f"AI analysis saved: {ai_path}")
@@ -214,20 +226,28 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run TPC-B benchmark
-  ./bench.py --hardware r8g.2xlarge --workload tpc-b
+  # Run TPC-B benchmark (single-node topology)
+  ./bench.py -L single-node -H r8g.2xlarge -W tpc-b
+
+  # Proxy topology
+  ./bench.py --topology proxy-single --hardware r8g.2xlarge --workload tpc-b
 
   # Custom duration and clients
-  ./bench.py --hardware r8g.2xlarge --workload tpc-b --duration 120 --clients 200
+  ./bench.py -L single-node -H r8g.2xlarge -W tpc-b --duration 120 --clients 200
 
   # Diagnostics only (no benchmark)
-  ./bench.py --hardware r8g.2xlarge --workload tpc-b --diagnostics-only --duration 60
+  ./bench.py -L single-node -H r8g.2xlarge -W tpc-b --diagnostics-only
 
   # Skip AI analysis
-  ./bench.py --hardware r8g.2xlarge --workload tpc-b --skip-ai
+  ./bench.py -L single-node -H r8g.2xlarge -W tpc-b --skip-ai
         """
     )
 
+    parser.add_argument(
+        "--topology", "-L",
+        default="single-node",
+        help="Infrastructure topology (default: single-node)"
+    )
     parser.add_argument(
         "--hardware", "-H",
         required=True,
@@ -280,6 +300,7 @@ Examples:
 
     # Run benchmark
     run_benchmark(
+        topology=args.topology,
         hardware=args.hardware,
         workload=args.workload,
         duration=args.duration,

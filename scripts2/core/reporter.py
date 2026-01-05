@@ -262,6 +262,7 @@ def save_report(
     output_dir: Path,
     context_id: str,
     timestamp: str,
+    workload: str = "",
     suffix: str = "",
 ) -> Path:
     """
@@ -270,19 +271,27 @@ def save_report(
     Args:
         report: Markdown report content
         output_dir: Base output directory
-        context_id: Hardware--workload context
+        context_id: topology/hardware--workload context path
         timestamp: Timestamp string
+        workload: Workload name for filename prefix
         suffix: Optional suffix (e.g., "_ai")
 
     Returns:
         Path to saved report
+
+    Naming convention:
+        Directory: results/{topology}/{hardware}--{workload}/
+        Filename:  {workload}_{timestamp}{suffix}.md
     """
     # Create context-specific directory
     context_dir = output_dir / context_id
     context_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate filename
-    filename = f"{timestamp}{suffix}.md"
+    # Generate filename with workload prefix
+    if workload:
+        filename = f"{workload}_{timestamp}{suffix}.md"
+    else:
+        filename = f"{timestamp}{suffix}.md"
     report_path = context_dir / filename
 
     report_path.write_text(report)
