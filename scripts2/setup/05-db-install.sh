@@ -148,6 +148,7 @@ port = ${PG_PORT}
 # --- CONNECTIONS & MEMORY ---
 max_connections = ${PG_MAX_CONNECTIONS}
 shared_buffers = ${PG_SHARED_BUFFERS}
+huge_pages = ${PG_HUGE_PAGES:-try}
 work_mem = ${PG_WORK_MEM}
 maintenance_work_mem = ${PG_MAINTENANCE_WORK_MEM}
 effective_cache_size = ${PG_EFFECTIVE_CACHE_SIZE}
@@ -383,6 +384,7 @@ printf "%-35s %-15s %-15s %s\n" "-----------------------------------" "---------
 echo -e "${BLUE}CONNECTIONS & MEMORY${NC}"
 verify_setting "max_connections" "${PG_MAX_CONNECTIONS}"
 verify_setting "shared_buffers" "${PG_SHARED_BUFFERS}"
+verify_setting "huge_pages" "${PG_HUGE_PAGES:-try}"
 verify_setting "work_mem" "${PG_WORK_MEM}"
 verify_setting "maintenance_work_mem" "${PG_MAINTENANCE_WORK_MEM}"
 verify_setting "effective_cache_size" "${PG_EFFECTIVE_CACHE_SIZE}"
@@ -687,10 +689,11 @@ print_category "11. POSTGRESQL - CONNECTION & MEMORY"
 
 print_config "max_connections" "${PG_MAX_CONNECTIONS}" "$(sudo -u postgres psql -t -c 'SHOW max_connections;' 2>/dev/null | tr -d ' ')"
 print_config "shared_buffers" "${PG_SHARED_BUFFERS}" "$(sudo -u postgres psql -t -c 'SHOW shared_buffers;' 2>/dev/null | tr -d ' ')"
+print_config "huge_pages" "${PG_HUGE_PAGES:-try}" "$(sudo -u postgres psql -t -c 'SHOW huge_pages;' 2>/dev/null | tr -d ' ')"
 print_config "work_mem" "${PG_WORK_MEM}" "$(sudo -u postgres psql -t -c 'SHOW work_mem;' 2>/dev/null | tr -d ' ')"
 print_config "maintenance_work_mem" "${PG_MAINTENANCE_WORK_MEM}" "$(sudo -u postgres psql -t -c 'SHOW maintenance_work_mem;' 2>/dev/null | tr -d ' ')"
 print_config "effective_cache_size" "${PG_EFFECTIVE_CACHE_SIZE}" "$(sudo -u postgres psql -t -c 'SHOW effective_cache_size;' 2>/dev/null | tr -d ' ')"
-CONFIG_COUNT=$((CONFIG_COUNT + 5))
+CONFIG_COUNT=$((CONFIG_COUNT + 6))
 
 # =============================================================================
 # 12. POSTGRESQL - DISK I/O (3 params)
