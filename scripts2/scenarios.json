@@ -1,0 +1,386 @@
+{
+  "defaults": {
+    "duration": 60
+  },
+  "disks": {
+    "data": {
+      "name": "DATA",
+      "mount_point": "/data",
+      "device": "/dev/md0",
+      "volumes": ["md0"]
+    },
+    "wal": {
+      "name": "WAL",
+      "mount_point": "/wal",
+      "device": "/dev/md1",
+      "volumes": ["md1"]
+    },
+    "postgres": {
+      "name": "POSTGRES",
+      "mount_point": "/data,/wal",
+      "device": "/dev/md0,/dev/md1",
+      "volumes": ["md0", "md1"]
+    }
+  },
+  "scenarios": {
+    "1": {
+      "id": "wal_heartbeat",
+      "name": "The Heartbeat",
+      "desc": "Commit Latency - Single backend sync write (QD1+fdatasync)",
+      "target_disk": "wal",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=wal_commit_latency", "--filename=/wal/bench_wal_lat", "--size=2G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=write", "--fdatasync=1", "--iodepth=1", "--numjobs=1", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/wal/bench_wal_lat"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "2": {
+      "id": "data_stress",
+      "name": "Stress Test",
+      "desc": "Mixed IOPS - Random R/W 70:30 at saturation (QD64x4)",
+      "target_disk": "data",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=data_stress_test", "--filename=/data/bench_data_stress", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randrw", "--rwmixread=70", "--iodepth=64", "--numjobs=4", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/data/bench_data_stress"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "3": {
+      "id": "data_latency",
+      "name": "Latency",
+      "desc": "Single Thread Random Read - True EBS latency (QD1)",
+      "target_disk": "data",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=data_latency_test", "--filename=/data/bench_data_lat", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randread", "--iodepth=1", "--numjobs=1", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/data/bench_data_lat"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "4": {
+      "id": "data_throughput",
+      "name": "Throughput",
+      "desc": "Sequential Read - Max bandwidth (1MB blocks, QD16)",
+      "target_disk": "data",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=data_throughput_test", "--filename=/data/bench_data_bw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=read", "--iodepth=16", "--numjobs=1", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/data/bench_data_bw"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "5": {
+      "id": "wal_firehose",
+      "name": "The Firehose",
+      "desc": "Sequential Throughput - Max write bandwidth (1MB blocks, no fsync)",
+      "target_disk": "wal",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=wal_throughput", "--filename=/wal/bench_wal_bw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=write", "--iodepth=16", "--numjobs=1", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/wal/bench_wal_bw"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "6": {
+      "id": "wal_trafficjam",
+      "name": "The Traffic Jam",
+      "desc": "Group Commit Stress - Multi-thread sync write (QD32x4+fdatasync)",
+      "target_disk": "wal",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=wal_group_commit", "--filename=/wal/bench_wal_stress", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=32k", "--rw=write", "--fdatasync=1", "--iodepth=32", "--numjobs=4", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/wal/bench_wal_stress"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "7": {
+      "id": "data_seq_write",
+      "name": "Sequential Write",
+      "desc": "Checkpoint-style - Large sequential writes (1MB blocks, QD16)",
+      "target_disk": "data",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=data_seq_write_test", "--filename=/data/bench_data_seqw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=write", "--iodepth=16", "--numjobs=1", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/data/bench_data_seqw"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "8": {
+      "id": "data_rand_write",
+      "name": "Random Write",
+      "desc": "Pure Write IOPS - Random writes only (8K blocks, QD64x4)",
+      "target_disk": "data",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=data_rand_write_test", "--filename=/data/bench_data_randw", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randwrite", "--iodepth=64", "--numjobs=4", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/data/bench_data_randw"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "9": {
+      "id": "data_mixed_sync",
+      "name": "Mixed Sync",
+      "desc": "DB-Realistic - Random R/W 70:30 with fdatasync (QD32x4)",
+      "target_disk": "data",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=data_mixed_sync_test", "--filename=/data/bench_data_sync", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=8k", "--rw=randrw", "--rwmixread=70", "--fdatasync=1", "--iodepth=32", "--numjobs=4", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/data/bench_data_sync"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "10": {
+      "id": "wal_replay",
+      "name": "Recovery Replay",
+      "desc": "Sequential Read - Simulates Replica Catch-up or Crash Recovery",
+      "target_disk": "wal",
+      "duration": 60,
+      "begin": [],
+      "parallel": [
+        {
+          "name": "fio",
+          "cmd": ["fio", "--name=wal_read_replay", "--filename=/wal/bench_wal_replay", "--size=5G", "--time_based", "--runtime={duration}s", "--ioengine=libaio", "--direct=1", "--bs=1M", "--rw=read", "--iodepth=8", "--numjobs=1", "--group_reporting"],
+          "primary": true,
+          "cleanup": "/wal/bench_wal_replay"
+        },
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] }
+      ],
+      "end": []
+    },
+    "11": {
+      "id": "postgres_tpcb",
+      "name": "TPC-B Write Intensive",
+      "desc": "Standard OLTP Benchmark - pgbench {clients} clients",
+      "target_disk": "postgres",
+      "clients": 32,
+      "begin": [
+        { "name": "checkpoint", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "CHECKPOINT;"] },
+        { "name": "pg_stat_reset", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('bgwriter');"] }
+      ],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        { "name": "pg_wait_events", "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 5\"; sleep 1; done"] },
+        {
+          "name": "pgbench",
+          "cmd": ["sudo", "-u", "postgres", "pgbench", "-c", "{clients}", "-j", "{threads}", "-T", "{duration}", "-P", "5", "pgbench"],
+          "primary": true
+        }
+      ],
+      "end": []
+    },
+    "12": {
+      "id": "postgres_pure_read",
+      "name": "Pure Read",
+      "desc": "SELECT-only - Tests RAM throughput (pgbench -S)",
+      "target_disk": "postgres",
+      "begin": [
+        { "name": "pg_stat_reset", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"] }
+      ],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        {
+          "name": "pgbench",
+          "cmd": ["sudo", "-u", "postgres", "pgbench", "-S", "-c", "{clients}", "-j", "{threads}", "-T", "{duration}", "-P", "5", "pgbench"],
+          "primary": true
+        }
+      ],
+      "end": []
+    },
+    "13": {
+      "id": "postgres_connection_storm",
+      "name": "Connection Storm",
+      "desc": "Connect per transaction - Tests auth overhead (pgbench -C)",
+      "target_disk": "postgres",
+      "clients": 50,
+      "threads": 8,
+      "begin": [],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        {
+          "name": "pgbench",
+          "cmd": ["sudo", "-u", "postgres", "pgbench", "-S", "-C", "-c", "{clients}", "-j", "{threads}", "-T", "{duration}", "-P", "5", "pgbench"],
+          "primary": true
+        }
+      ],
+      "end": []
+    },
+    "14": {
+      "id": "postgres_high_concurrency",
+      "name": "High Concurrency",
+      "desc": "High concurrency stress test - {clients} clients",
+      "target_disk": "postgres",
+      "clients": 200,
+      "threads": 16,
+      "begin": [
+        { "name": "pg_stat_reset", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"] }
+      ],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        { "name": "pg_wait_events", "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 5\"; sleep 1; done"] },
+        {
+          "name": "pgbench",
+          "cmd": ["sudo", "-u", "postgres", "pgbench", "-c", "{clients}", "-j", "{threads}", "-T", "{duration}", "-P", "5", "pgbench"],
+          "primary": true
+        }
+      ],
+      "end": []
+    },
+    "15": {
+      "id": "sysbench_oltp_read",
+      "name": "OLTP Read Only",
+      "desc": "Sysbench oltp_read_only - Pure SELECT workload",
+      "target_disk": "postgres",
+      "duration": 60,
+      "begin": [
+        { "name": "checkpoint", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "CHECKPOINT;"] },
+        { "name": "pg_stat_reset", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"] }
+      ],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        { "name": "pg_wait_events", "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 5\"; sleep 1; done"] },
+        {
+          "name": "sysbench",
+          "cmd": ["sysbench", "oltp_read_only", "--db-driver=pgsql", "--pgsql-host=127.0.0.1", "--pgsql-port=5432", "--pgsql-user=postgres", "--pgsql-password=postgres", "--pgsql-db=sysbench", "--tables=10", "--table-size=10000000", "--threads=32", "--time={duration}", "--report-interval=10", "run"],
+          "primary": true
+        }
+      ],
+      "end": []
+    },
+    "16": {
+      "id": "sysbench_oltp_rw",
+      "name": "OLTP Read/Write",
+      "desc": "Sysbench oltp_read_write - Mixed transactions",
+      "target_disk": "postgres",
+      "duration": 60,
+      "begin": [
+        { "name": "checkpoint", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "CHECKPOINT;"] },
+        { "name": "pg_stat_reset", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"] }
+      ],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        { "name": "pg_wait_events", "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 5\"; sleep 1; done"] },
+        {
+          "name": "sysbench",
+          "cmd": ["sysbench", "oltp_read_write", "--db-driver=pgsql", "--pgsql-host=127.0.0.1", "--pgsql-port=5432", "--pgsql-user=postgres", "--pgsql-password=postgres", "--pgsql-db=sysbench", "--tables=10", "--table-size=10000000", "--threads=32", "--time={duration}", "--report-interval=10", "run"],
+          "primary": true
+        }
+      ],
+      "end": []
+    },
+    "17": {
+      "id": "sysbench_oltp_write",
+      "name": "OLTP Write Only",
+      "desc": "Sysbench oltp_write_only - INSERT/UPDATE/DELETE",
+      "target_disk": "postgres",
+      "duration": 60,
+      "begin": [
+        { "name": "checkpoint", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "CHECKPOINT;"] },
+        { "name": "pg_stat_reset", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"] }
+      ],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        { "name": "pg_wait_events", "cmd": ["bash", "-c", "for i in $(seq 1 {duration}); do echo \"=== $(date '+%H:%M:%S') ===\"; sudo -u postgres psql -t -c \"SELECT coalesce(wait_event_type,'CPU') as type, coalesce(wait_event,'Running') as event, count(*) as cnt FROM pg_stat_activity WHERE state='active' AND pid<>pg_backend_pid() GROUP BY 1,2 ORDER BY 3 DESC LIMIT 5\"; sleep 1; done"] },
+        {
+          "name": "sysbench",
+          "cmd": ["sysbench", "oltp_write_only", "--db-driver=pgsql", "--pgsql-host=127.0.0.1", "--pgsql-port=5432", "--pgsql-user=postgres", "--pgsql-password=postgres", "--pgsql-db=sysbench", "--tables=10", "--table-size=10000000", "--threads=32", "--time={duration}", "--report-interval=10", "run"],
+          "primary": true
+        }
+      ],
+      "end": []
+    },
+    "18": {
+      "id": "sysbench_oltp_point",
+      "name": "OLTP Point Select",
+      "desc": "Sysbench oltp_point_select - Simple PK lookups",
+      "target_disk": "postgres",
+      "duration": 60,
+      "begin": [
+        { "name": "checkpoint", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "CHECKPOINT;"] },
+        { "name": "pg_stat_reset", "cmd": ["sudo", "-u", "postgres", "psql", "-c", "SELECT pg_stat_reset();"] }
+      ],
+      "parallel": [
+        { "name": "iostat", "cmd": ["iostat", "-xz", "1", "{duration}"], "filter_volumes": true },
+        { "name": "mpstat", "cmd": ["mpstat", "-P", "ALL", "1", "{duration}"] },
+        {
+          "name": "sysbench",
+          "cmd": ["sysbench", "oltp_point_select", "--db-driver=pgsql", "--pgsql-host=127.0.0.1", "--pgsql-port=5432", "--pgsql-user=postgres", "--pgsql-password=postgres", "--pgsql-db=sysbench", "--tables=10", "--table-size=10000000", "--threads=64", "--time={duration}", "--report-interval=10", "run"],
+          "primary": true
+        }
+      ],
+      "end": []
+    }
+  }
+}
