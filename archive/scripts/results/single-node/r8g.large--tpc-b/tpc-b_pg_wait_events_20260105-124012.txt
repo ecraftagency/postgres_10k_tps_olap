@@ -1,0 +1,321 @@
+=== 12:41:20 ===
+ IO   | DataFileRead |   2
+ CPU  | Running      |   1
+
+=== 12:41:21 ===
+ IO   | DataFileRead |   2
+
+=== 12:41:22 ===
+ LWLock | WALWrite      |  31
+ IO     | DataFileRead  |   5
+ LWLock | WALInsert     |   3
+ CPU    | Running       |   2
+ Lock   | transactionid |   2
+
+=== 12:41:23 ===
+ IO     | DataFileRead  |   8
+ LWLock | WALWrite      |   8
+ Client | ClientRead    |   7
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:24 ===
+ LWLock | WALWrite      |  41
+ IO     | DataFileRead  |   4
+ Lock   | transactionid |   2
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+
+=== 12:41:25 ===
+ LWLock | WALWrite      |  47
+ IO     | DataFileRead  |   2
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+
+=== 12:41:26 ===
+ LWLock | WALWrite     |  49
+ IO     | DataFileRead |   2
+ IO     | WALSync      |   1
+
+=== 12:41:27 ===
+ IO     | DataFileRead |  44
+ LWLock | WALWrite     |   7
+ IO     | WALSync      |   1
+
+=== 12:41:28 ===
+ LWLock | WALWrite      |  44
+ IO     | DataFileRead  |   4
+ Lock   | transactionid |   3
+ IO     | WALSync       |   1
+
+=== 12:41:29 ===
+ LWLock | WALWrite      |  46
+ IO     | DataFileRead  |   3
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+
+=== 12:41:30 ===
+ IO     | DataFileRead  |  29
+ LWLock | WALWrite      |  21
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:31 ===
+ LWLock | WALWrite     |  44
+ IO     | DataFileRead |   7
+ IO     | WALSync      |   1
+
+=== 12:41:32 ===
+ IO     | DataFileRead |  31
+ LWLock | WALWrite     |  20
+ IO     | WALSync      |   1
+
+=== 12:41:33 ===
+ LWLock | WALWrite      |  46
+ IO     | DataFileRead  |   3
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+
+=== 12:41:34 ===
+ LWLock | WALWrite      |  43
+ IO     | DataFileRead  |   7
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:35 ===
+ LWLock | WALWrite      |  48
+ IO     | DataFileRead  |   2
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:36 ===
+ IO     | DataFileRead |  45
+ LWLock | WALWrite     |   6
+ IO     | WALSync      |   1
+
+=== 12:41:37 ===
+ LWLock | WALWrite      |  47
+ IO     | DataFileRead  |   2
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+
+=== 12:41:39 ===
+ IO     | DataFileRead |  36
+ LWLock | WALWrite     |  15
+ IO     | WALSync      |   1
+
+=== 12:41:40 ===
+ LWLock | WALWrite      |  47
+ IO     | DataFileRead  |   3
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:41 ===
+ IO     | DataFileRead |  33
+ LWLock | WALWrite     |  18
+ IO     | WALSync      |   1
+
+=== 12:41:42 ===
+ IO     | DataFileRead |  32
+ LWLock | WALWrite     |  19
+ IO     | WALSync      |   1
+
+=== 12:41:43 ===
+ LWLock | WALWrite      |  42
+ IO     | DataFileRead  |   8
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:44 ===
+ LWLock | WALWrite     |  43
+ IO     | DataFileRead |   8
+ IO     | WALSync      |   1
+
+=== 12:41:45 ===
+ LWLock | WALWrite     |  50
+ IO     | DataFileRead |   2
+
+=== 12:41:46 ===
+ IO     | DataFileRead |  29
+ LWLock | WALWrite     |  22
+ IO     | WALSync      |   1
+
+=== 12:41:47 ===
+ LWLock | WALWrite     |  49
+ IO     | DataFileRead |   2
+ IO     | WALSync      |   1
+
+=== 12:41:48 ===
+ LWLock | WALWrite      |  46
+ IO     | DataFileRead  |   4
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:49 ===
+ LWLock | WALWrite     |  46
+ IO     | DataFileRead |   5
+ IO     | WALSync      |   1
+
+=== 12:41:50 ===
+ LWLock | WALWrite      |  47
+ IO     | DataFileRead  |   2
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+
+=== 12:41:51 ===
+ LWLock | WALWrite      |  48
+ IO     | DataFileRead  |   2
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:52 ===
+ LWLock | WALWrite     |  46
+ IO     | DataFileRead |   5
+ IO     | WALSync      |   1
+
+=== 12:41:53 ===
+ LWLock | WALWrite      |  47
+ IO     | DataFileRead  |   3
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:54 ===
+ LWLock | WALWrite     |  44
+ IO     | DataFileRead |   7
+ IO     | WALSync      |   1
+
+=== 12:41:55 ===
+ LWLock | WALWrite      |  41
+ IO     | DataFileRead  |   9
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:41:56 ===
+ LWLock | WALWrite      |  45
+ IO     | DataFileRead  |   3
+ Lock   | transactionid |   3
+ IO     | WALSync       |   1
+
+=== 12:41:57 ===
+ IO     | DataFileRead |  33
+ LWLock | WALWrite     |  18
+ IO     | WALSync      |   1
+
+=== 12:41:58 ===
+ IO     | DataFileRead |  30
+ LWLock | WALWrite     |  21
+ IO     | WALSync      |   1
+
+=== 12:41:59 ===
+ IO     | DataFileRead |  17
+ IO     | WALSync      |   1
+ LWLock | WALWrite     |   1
+
+=== 12:42:00 ===
+ LWLock | WALWrite      |  20
+ IO     | DataFileRead  |  10
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:42:01 ===
+ IO     | DataFileRead  |  32
+ LWLock | WALWrite      |  18
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:42:02 ===
+ LWLock | WALWrite     |  42
+ IO     | DataFileRead |   9
+ IO     | WALSync      |   1
+
+=== 12:42:03 ===
+ LWLock | WALWrite      |  48
+ IO     | DataFileRead  |   2
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:42:04 ===
+ IO     | DataFileRead  |  27
+ LWLock | WALWrite      |  23
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:42:05 ===
+ IO     | DataFileRead |  31
+ LWLock | WALWrite     |  20
+ IO     | WALSync      |   1
+
+=== 12:42:06 ===
+ LWLock | WALWrite     |  40
+ IO     | DataFileRead |  11
+ IO     | WALSync      |   1
+
+=== 12:42:07 ===
+ LWLock | WALWrite     |  43
+ IO     | DataFileRead |   9
+
+=== 12:42:08 ===
+ LWLock | WALWrite     |  40
+ IO     | DataFileRead |  11
+ IO     | WALSync      |   1
+
+=== 12:42:09 ===
+ LWLock | WALWrite     |  47
+ IO     | DataFileRead |   4
+ IO     | WALSync      |   1
+
+=== 12:42:11 ===
+ LWLock | WALWrite     |  43
+ IO     | DataFileRead |   8
+ IO     | WALSync      |   1
+
+=== 12:42:12 ===
+ IO     | DataFileRead |  31
+ LWLock | WALWrite     |  20
+ IO     | WALSync      |   1
+
+=== 12:42:13 ===
+ LWLock | WALWrite     |  46
+ IO     | DataFileRead |   6
+
+=== 12:42:14 ===
+ LWLock | WALWrite     |  47
+ IO     | DataFileRead |   4
+ IO     | WALSync      |   1
+
+=== 12:42:15 ===
+ LWLock | WALWrite     |  48
+ IO     | DataFileRead |   3
+ IO     | WALSync      |   1
+
+=== 12:42:16 ===
+ LWLock | WALWrite      |  44
+ IO     | DataFileRead  |   6
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 12:42:17 ===
+ IO     | DataFileRead |  45
+ LWLock | WALWrite     |   6
+ IO     | WALSync      |   1
+
+=== 12:42:18 ===
+ IO     | DataFileRead |  35
+ LWLock | WALWrite     |  16
+ IO     | WALSync      |   1
+
+=== 12:42:19 ===
+ IO     | DataFileRead |  19
+ LWLock | WALWrite     |  13
+ IO     | WALSync      |   1
+
+=== 12:42:20 ===
+ IO     | DataFileRead |  33
+ LWLock | WALWrite     |  18
+ IO     | WALSync      |   1
+
+=== 12:42:21 ===
+ LWLock | WALWrite     |  49
+ IO     | DataFileRead |   2
+ IO     | WALSync      |   1
+
