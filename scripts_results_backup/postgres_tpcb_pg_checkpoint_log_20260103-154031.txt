@@ -1,0 +1,2 @@
+2026-01-03 13:44:13.659 GMT [30839] LOG:  checkpoint starting: shutdown immediate
+2026-01-03 13:44:13.667 GMT [30839] LOG:  checkpoint complete: wrote 43 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.003 s, total=0.010 s; sync files=12, longest=0.002 s, average=0.001 s; distance=238 kB, estimate=238 kB; lsn=0/4E5D85D8, redo lsn=0/4E5D85D8

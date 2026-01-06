@@ -1,0 +1,272 @@
+=== 17:05:28 ===
+
+=== 17:05:29 ===
+
+=== 17:05:30 ===
+ IO      | DataFileRead |  26
+ CPU     | Running      |   4
+ Timeout | SpinDelay    |   1
+
+=== 17:05:31 ===
+ IO   | DataFileRead |  50
+
+=== 17:05:32 ===
+ IO   | DataFileRead |  45
+ CPU  | Running      |   1
+
+=== 17:05:33 ===
+ IO   | DataFileRead  |  35
+ IO   | DataFileWrite |  15
+
+=== 17:05:34 ===
+ IO     | DataFileRead  |  28
+ IO     | DataFileWrite |  20
+ CPU    | Running       |   1
+ Client | ClientRead    |   1
+
+=== 17:05:36 ===
+ IO   | DataFileRead  |  29
+ IO   | DataFileWrite |  19
+
+=== 17:05:37 ===
+ IO     | DataFileWrite |  28
+ IO     | DataFileRead  |  19
+ Client | ClientRead    |   2
+
+=== 17:05:38 ===
+ IO   | DataFileRead  |  29
+ IO   | DataFileWrite |  20
+ CPU  | Running       |   1
+
+=== 17:05:39 ===
+ IO   | DataFileWrite |  26
+ IO   | DataFileRead  |  22
+ CPU  | Running       |   1
+
+=== 17:05:40 ===
+ IO   | DataFileWrite |  27
+ IO   | DataFileRead  |  23
+
+=== 17:05:41 ===
+ IO   | DataFileWrite |  30
+ IO   | DataFileRead  |  20
+
+=== 17:05:42 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  24
+
+=== 17:05:43 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  24
+
+=== 17:05:44 ===
+ IO   | DataFileRead  |  33
+ IO   | DataFileWrite |  17
+
+=== 17:05:45 ===
+ IO     | DataFileRead  |  35
+ IO     | DataFileWrite |  14
+ Client | ClientRead    |   1
+
+=== 17:05:46 ===
+ IO     | DataFileRead  |  27
+ IO     | DataFileWrite |  22
+ Client | ClientRead    |   1
+
+=== 17:05:47 ===
+ IO   | DataFileRead  |  32
+ IO   | DataFileWrite |  18
+
+=== 17:05:48 ===
+ IO     | DataFileRead  |  26
+ IO     | DataFileWrite |  22
+ Client | ClientRead    |   1
+
+=== 17:05:49 ===
+ IO   | DataFileRead  |  28
+ IO   | DataFileWrite |  22
+
+=== 17:05:50 ===
+ IO   | DataFileRead  |  28
+ IO   | DataFileWrite |  22
+
+=== 17:05:51 ===
+ IO   | DataFileRead  |  31
+ IO   | DataFileWrite |  19
+
+=== 17:05:52 ===
+ IO     | DataFileWrite |  19
+ IO     | DataFileRead  |  15
+ Client | ClientRead    |   7
+ CPU    | Running       |   3
+
+=== 17:05:53 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  23
+ CPU  | Running       |   1
+
+=== 17:05:54 ===
+ IO   | DataFileRead  |  31
+ IO   | DataFileWrite |  18
+ CPU  | Running       |   1
+
+=== 17:05:55 ===
+ IO   | DataFileRead  |  28
+ IO   | DataFileWrite |  22
+
+=== 17:05:56 ===
+ IO     | DataFileRead  |  26
+ IO     | DataFileWrite |  21
+ Client | ClientRead    |   1
+
+=== 17:05:57 ===
+ IO   | DataFileRead  |  28
+ IO   | DataFileWrite |  22
+
+=== 17:05:58 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  23
+ CPU  | Running       |   1
+
+=== 17:05:59 ===
+ IO   | DataFileRead  |  31
+ IO   | DataFileWrite |  19
+
+=== 17:06:00 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  23
+ CPU  | Running       |   1
+
+=== 17:06:01 ===
+ IO   | DataFileRead  |  34
+ IO   | DataFileWrite |  16
+
+=== 17:06:02 ===
+ IO   | DataFileRead  |  40
+ IO   | DataFileWrite |  10
+
+=== 17:06:03 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  22
+ CPU  | Running       |   1
+
+=== 17:06:04 ===
+ IO   | DataFileRead  |  29
+ IO   | DataFileWrite |  20
+
+=== 17:06:05 ===
+ IO   | DataFileRead  |  31
+ IO   | DataFileWrite |  19
+
+=== 17:06:06 ===
+ IO   | DataFileRead  |  33
+ IO   | DataFileWrite |  17
+
+=== 17:06:07 ===
+ IO   | DataFileRead  |  29
+ IO   | DataFileWrite |  21
+
+=== 17:06:09 ===
+ IO   | DataFileRead  |  32
+ IO   | DataFileWrite |  18
+
+=== 17:06:10 ===
+ IO     | DataFileRead  |  32
+ IO     | DataFileWrite |  17
+ Client | ClientRead    |   1
+
+=== 17:06:11 ===
+ IO   | DataFileRead  |  33
+ IO   | DataFileWrite |  15
+ CPU  | Running       |   1
+
+=== 17:06:12 ===
+ IO     | DataFileRead  |  34
+ IO     | DataFileWrite |  10
+ CPU    | Running       |   4
+ Client | ClientRead    |   1
+
+=== 17:06:13 ===
+ IO   | DataFileRead  |  33
+ IO   | DataFileWrite |  17
+
+=== 17:06:14 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  23
+
+=== 17:06:15 ===
+ IO   | DataFileRead  |  33
+ IO   | DataFileWrite |  17
+
+=== 17:06:16 ===
+ IO   | DataFileRead  |  33
+ IO   | DataFileWrite |  15
+ CPU  | Running       |   2
+
+=== 17:06:17 ===
+ IO   | DataFileRead  |  35
+ IO   | DataFileWrite |  12
+ CPU  | Running       |   1
+
+=== 17:06:18 ===
+ IO   | DataFileRead  |  28
+ IO   | DataFileWrite |  19
+ CPU  | Running       |   2
+
+=== 17:06:19 ===
+ IO   | DataFileRead  |  34
+ IO   | DataFileWrite |  15
+ CPU  | Running       |   1
+
+=== 17:06:20 ===
+ IO   | DataFileRead  |  35
+ IO   | DataFileWrite |  14
+ CPU  | Running       |   1
+
+=== 17:06:21 ===
+ IO   | DataFileRead  |  29
+ IO   | DataFileWrite |  21
+
+=== 17:06:22 ===
+ IO   | DataFileRead  |  35
+ IO   | DataFileWrite |  15
+
+=== 17:06:23 ===
+ IO   | DataFileRead  |  34
+ IO   | DataFileWrite |  16
+
+=== 17:06:24 ===
+ IO     | DataFileRead  |  38
+ IO     | DataFileWrite |  11
+ Client | ClientRead    |   1
+
+=== 17:06:25 ===
+ IO   | DataFileRead  |  28
+ IO   | DataFileWrite |  22
+
+=== 17:06:26 ===
+ IO   | DataFileRead  |  29
+ IO   | DataFileWrite |  21
+
+=== 17:06:27 ===
+ IO   | DataFileRead  |  26
+ IO   | DataFileWrite |  24
+
+=== 17:06:28 ===
+ IO   | DataFileRead  |  34
+ IO   | DataFileWrite |  13
+ CPU  | Running       |   2
+
+=== 17:06:29 ===
+ IO   | DataFileRead  |  30
+ IO   | DataFileWrite |  18
+ CPU  | Running       |   2
+
+=== 17:06:30 ===
+ IO   | DataFileRead  |  49
+ IO   | DataFileWrite |   1
+
+=== 17:06:31 ===
+
+=== 17:06:32 ===
+

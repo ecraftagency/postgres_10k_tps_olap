@@ -1,0 +1,463 @@
+=== 15:40:31 ===
+
+=== 15:40:32 ===
+
+=== 15:40:33 ===
+ IO     | DataFileRead  |  40
+ IPC    | BufferIO      |  14
+ CPU    | Running       |  12
+ Client | ClientRead    |   3
+ LWLock | LockManager   |   3
+ LWLock | BufferContent |   2
+ LWLock | BufferMapping |   1
+
+=== 15:40:34 ===
+ LWLock | WALWrite      |  45
+ IO     | DataFileRead  |  16
+ Client | ClientRead    |   5
+ CPU    | Running       |   4
+ Lock   | transactionid |   3
+ IO     | WALSync       |   1
+
+=== 15:40:35 ===
+ IO     | DataFileRead  |  32
+ LWLock | WALWrite      |  14
+ CPU    | Running       |   7
+ Client | ClientRead    |   3
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 15:40:36 ===
+ IO     | DataFileRead  |  21
+ LWLock | WALWrite      |  17
+ LWLock | WALInsert     |  11
+ CPU    | Running       |   7
+ Client | ClientRead    |   6
+ Lock   | transactionid |   3
+ LWLock | BufferContent |   1
+
+=== 15:40:37 ===
+ LWLock | WALWrite      |  64
+ IO     | DataFileRead  |   8
+ LWLock | WALInsert     |   7
+ CPU    | Running       |   4
+ Lock   | transactionid |   3
+ Client | ClientRead    |   2
+ LWLock | BufferContent |   1
+ IO     | WALSync       |   1
+
+=== 15:40:38 ===
+ LWLock | WALWrite      |  49
+ LWLock | WALInsert     |  16
+ IO     | DataFileRead  |  10
+ Client | ClientRead    |   2
+ CPU    | Running       |   2
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 15:40:39 ===
+ LWLock | WALWrite     |  39
+ IO     | DataFileRead |  15
+ LWLock | WALInsert    |   9
+ Client | ClientRead   |   6
+ CPU    | Running      |   2
+ IO     | WALSync      |   1
+
+=== 15:40:40 ===
+ LWLock | WALWrite      |  33
+ IO     | DataFileRead  |  31
+ IO     | DataFileWrite |   9
+ CPU    | Running       |   3
+ LWLock | WALInsert     |   2
+ Lock   | transactionid |   1
+ Client | ClientRead    |   1
+ IO     | WALSync       |   1
+
+=== 15:40:41 ===
+ IO     | DataFileRead |  53
+ LWLock | WALWrite     |  13
+ CPU    | Running      |   5
+ Client | ClientRead   |   1
+ IO     | WALSync      |   1
+
+=== 15:40:42 ===
+ LWLock | WALWrite      |  37
+ IO     | DataFileRead  |  20
+ Client | ClientRead    |   3
+ CPU    | Running       |   2
+ IO     | DataFileWrite |   2
+ IO     | WALSync       |   1
+
+=== 15:40:43 ===
+ IO   | DataFileWrite | 100
+
+=== 15:40:44 ===
+ LWLock | WALWrite      |  40
+ IO     | DataFileRead  |  35
+ CPU    | Running       |  10
+ Client | ClientRead    |   4
+ IO     | DataFileWrite |   4
+ Lock   | transactionid |   1
+
+=== 15:40:45 ===
+ LWLock | WALWrite      |  64
+ IO     | DataFileRead  |  21
+ CPU    | Running       |   3
+ Client | ClientRead    |   3
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+
+=== 15:40:46 ===
+ LWLock | WALWrite      |  47
+ IO     | DataFileRead  |  25
+ IO     | DataFileWrite |   7
+ CPU    | Running       |   5
+ Lock   | transactionid |   4
+ Client | ClientRead    |   1
+
+=== 15:40:47 ===
+ LWLock | WALWrite      |  37
+ IO     | DataFileRead  |  14
+ IO     | DataFileWrite |   7
+ CPU    | Running       |   5
+ Lock   | transactionid |   2
+ Client | ClientRead    |   2
+ LWLock | BufferContent |   1
+ IO     | WALSync       |   1
+
+=== 15:40:48 ===
+ IO     | DataFileRead     |  35
+ LWLock | WALWrite         |  35
+ Lock   | transactionid    |   4
+ CPU    | Running          |   3
+ LWLock | CheckpointerComm |   2
+ Client | ClientRead       |   1
+
+=== 15:40:49 ===
+ IO     | DataFileRead  |  41
+ LWLock | WALWrite      |  36
+ CPU    | Running       |   3
+ IO     | DataFileWrite |   1
+ IO     | WALSync       |   1
+
+=== 15:40:50 ===
+ IO     | DataFileRead  |  33
+ LWLock | WALWrite      |  21
+ CPU    | Running       |   9
+ Client | ClientRead    |   5
+ Lock   | transactionid |   1
+
+=== 15:40:51 ===
+ LWLock | WALWrite         |  25
+ IO     | DataFileRead     |  17
+ IO     | DataFileWrite    |  12
+ CPU    | Running          |   7
+ Client | ClientRead       |   4
+ Lock   | transactionid    |   2
+ LWLock | BufferContent    |   2
+ LWLock | WALInsert        |   2
+ LWLock | CheckpointerComm |   1
+ IO     | WALSync          |   1
+
+=== 15:40:52 ===
+ LWLock | WALWrite             |  25
+ IO     | DataFileRead         |  15
+ IO     | DataFileWrite        |   8
+ Client | ClientRead           |   8
+ CPU    | Running              |   5
+ IPC    | ProcArrayGroupUpdate |   1
+ Lock   | transactionid        |   1
+
+=== 15:40:53 ===
+ LWLock | WALWrite     |  24
+ IO     | DataFileRead |  22
+ CPU    | Running      |  10
+ Client | ClientRead   |   3
+ IO     | WALSync      |   1
+
+=== 15:40:55 ===
+ LWLock | WALWrite      |  32
+ IO     | DataFileRead  |  23
+ CPU    | Running       |   4
+ Client | ClientRead    |   2
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+
+=== 15:40:56 ===
+ IO     | DataFileWrite |  59
+ LWLock | WALWrite      |  26
+ CPU    | Running       |   5
+ IO     | DataFileRead  |   4
+ Client | ClientRead    |   3
+ Lock   | transactionid |   1
+
+=== 15:40:57 ===
+ IO     | DataFileRead         |  27
+ LWLock | WALWrite             |  27
+ Client | ClientRead           |   4
+ CPU    | Running              |   4
+ Lock   | transactionid        |   1
+ IO     | WALSync              |   1
+ IPC    | ProcArrayGroupUpdate |   1
+ LWLock | ProcArray            |   1
+
+=== 15:40:58 ===
+ IO     | DataFileWrite |  41
+ IO     | DataFileRead  |  29
+ LWLock | WALWrite      |  18
+ CPU    | Running       |   1
+ Client | ClientRead    |   1
+ IO     | WALSync       |   1
+
+=== 15:40:59 ===
+ IO     | DataFileRead  |  28
+ IO     | DataFileWrite |  25
+ LWLock | WALWrite      |  18
+ Client | ClientRead    |   2
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+
+=== 15:41:00 ===
+ IO     | DataFileWrite |  32
+ LWLock | WALWrite      |  22
+ IO     | DataFileRead  |  21
+ Client | ClientRead    |   2
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+
+=== 15:41:01 ===
+ IO     | DataFileWrite |  45
+ IO     | DataFileRead  |  35
+ LWLock | WALWrite      |  13
+ Client | ClientRead    |   3
+ IO     | WALSync       |   1
+
+=== 15:41:02 ===
+ LWLock | WALWrite      |  32
+ IO     | DataFileWrite |  27
+ IO     | DataFileRead  |  25
+ CPU    | Running       |   3
+ Client | ClientRead    |   1
+ IO     | WALSync       |   1
+
+=== 15:41:03 ===
+ IO   | DataFileWrite |  72
+ IO   | DataFileRead  |  28
+
+=== 15:41:04 ===
+ IO   | DataFileWrite |  72
+ IO   | DataFileRead  |  28
+
+=== 15:41:05 ===
+ LWLock  | WALWrite      |  33
+ IO      | DataFileRead  |  24
+ IO      | DataFileWrite |  19
+ Timeout | SpinDelay     |  15
+ IO      | WALSync       |   1
+ Client  | ClientRead    |   1
+ CPU     | Running       |   1
+ Lock    | transactionid |   1
+
+=== 15:41:06 ===
+ IO     | DataFileWrite |  45
+ IO     | DataFileRead  |  31
+ LWLock | WALWrite      |  21
+ IO     | WALSync       |   1
+
+=== 15:41:07 ===
+ IO     | DataFileWrite |  38
+ IO     | DataFileRead  |  37
+ LWLock | WALWrite      |  13
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+
+=== 15:41:08 ===
+ IO     | DataFileWrite |  48
+ IO     | DataFileRead  |  31
+ LWLock | WALWrite      |  11
+ IO     | WALSync       |   1
+
+=== 15:41:09 ===
+ IO     | DataFileWrite |  49
+ IO     | DataFileRead  |  35
+ LWLock | WALWrite      |  14
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+
+=== 15:41:10 ===
+ IO     | DataFileWrite |  56
+ IO     | DataFileRead  |  29
+ LWLock | WALWrite      |  13
+ Client | ClientRead    |   1
+ IO     | WALSync       |   1
+
+=== 15:41:11 ===
+ IO     | DataFileRead  |  28
+ LWLock | WALWrite      |  28
+ IO     | DataFileWrite |  27
+ Client | ClientRead    |   6
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+
+=== 15:41:12 ===
+ IO     | DataFileWrite |  44
+ IO     | DataFileRead  |  36
+ LWLock | WALWrite      |  11
+ Client | ClientRead    |   3
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+
+=== 15:41:13 ===
+ LWLock | WALWrite        |  30
+ IO     | DataFileRead    |  21
+ IO     | DataFileWrite   |  18
+ IPC    | XactGroupUpdate |  11
+ CPU    | Running         |   4
+ Client | ClientRead      |   2
+ Lock   | transactionid   |   1
+ IO     | WALSync         |   1
+ LWLock | XactSLRU        |   1
+
+=== 15:41:14 ===
+ IO     | DataFileWrite |  35
+ IO     | DataFileRead  |  24
+ LWLock | WALWrite      |  23
+ CPU    | Running       |   5
+ Client | ClientRead    |   1
+
+=== 15:41:15 ===
+ IO     | DataFileRead  |  28
+ LWLock | WALWrite      |  26
+ IO     | DataFileWrite |  22
+ CPU    | Running       |   6
+ Client | ClientRead    |   4
+ Lock   | transactionid |   1
+
+=== 15:41:16 ===
+ IO   | DataFileWrite |  93
+ IO   | DataFileRead  |   7
+
+=== 15:41:17 ===
+ IO     | DataFileRead  |  38
+ LWLock | WALWrite      |  17
+ IO     | DataFileWrite |   7
+ CPU    | Running       |   5
+ Client | ClientRead    |   4
+ IO     | WALSync       |   1
+ LWLock | ProcArray     |   1
+
+=== 15:41:18 ===
+ LWLock | WALWrite      |  26
+ IO     | DataFileRead  |  21
+ IO     | DataFileWrite |  15
+ CPU    | Running       |   4
+ Client | ClientRead    |   2
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 15:41:19 ===
+ IO   | DataFileWrite |  68
+ IO   | DataFileRead  |  32
+
+=== 15:41:20 ===
+ IO   | DataFileWrite |  53
+ IO   | DataFileRead  |  47
+
+=== 15:41:21 ===
+ IO     | DataFileRead  |  25
+ LWLock | WALWrite      |  22
+ IO     | DataFileWrite |  16
+ CPU    | Running       |   9
+ Client | ClientRead    |   4
+ Lock   | transactionid |   1
+ IO     | WALSync       |   1
+ LWLock | BufferContent |   1
+
+=== 15:41:22 ===
+ LWLock | WALWrite      |  51
+ IO     | DataFileWrite |  13
+ IO     | DataFileRead  |  12
+ Client | ClientRead    |   6
+ CPU    | Running       |   5
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 15:41:23 ===
+ IO      | DataFileRead  |  19
+ LWLock  | WALWrite      |  17
+ IO      | DataFileWrite |  16
+ CPU     | Running       |   8
+ Timeout | SpinDelay     |   3
+ IO      | WALSync       |   1
+
+=== 15:41:25 ===
+ IO   | DataFileWrite |  52
+ IO   | DataFileRead  |  48
+
+=== 15:41:26 ===
+ IO     | DataFileWrite |  48
+ IO     | DataFileRead  |  36
+ CPU    | Running       |   5
+ Client | ClientRead    |   5
+ LWLock | WALWrite      |   5
+ Lock   | transactionid |   1
+
+=== 15:41:27 ===
+ IO     | DataFileRead  |  56
+ LWLock | WALWrite      |  21
+ IO     | DataFileWrite |  11
+ CPU    | Running       |   2
+ Lock   | transactionid |   2
+ IO     | WALSync       |   1
+ Client | ClientRead    |   1
+
+=== 15:41:28 ===
+ IO      | DataFileRead  |  29
+ IO      | DataFileWrite |  22
+ LWLock  | WALWrite      |  22
+ CPU     | Running       |   6
+ Client  | ClientRead    |   5
+ IO      | WALSync       |   1
+ Timeout | SpinDelay     |   1
+
+=== 15:41:29 ===
+ LWLock | WALWrite      |  34
+ IO     | DataFileRead  |  26
+ IO     | DataFileWrite |  21
+ Client | ClientRead    |   5
+ CPU    | Running       |   1
+ IO     | WALSync       |   1
+ Lock   | transactionid |   1
+
+=== 15:41:30 ===
+ IO     | DataFileRead         |  29
+ IO     | DataFileWrite        |  17
+ LWLock | WALInsert            |  16
+ CPU    | Running              |   9
+ Client | ClientRead           |   8
+ LWLock | WALWrite             |   7
+ IPC    | ProcArrayGroupUpdate |   3
+ Lock   | transactionid        |   2
+ LWLock | BufferContent        |   1
+ IO     | DataFileExtend       |   1
+
+=== 15:41:31 ===
+ IO   | DataFileWrite |  80
+ IO   | DataFileRead  |  20
+
+=== 15:41:32 ===
+ IO     | DataFileWrite |  40
+ IO     | DataFileRead  |  32
+ LWLock | WALWrite      |  12
+ CPU    | Running       |   4
+ Client | ClientRead    |   2
+ IO     | WALSync       |   1
+
+=== 15:41:33 ===
+ IO   | DataFileWrite |  45
+ IO   | DataFileRead  |  37
+
+=== 15:41:34 ===
+
+=== 15:41:35 ===
+

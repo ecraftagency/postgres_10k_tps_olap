@@ -1,0 +1,27 @@
+pgbench (16.11 (Ubuntu 16.11-1.pgdg24.04+1))
+transaction type: <builtin: select only>
+scaling factor: 1250
+query mode: simple
+number of clients: 20
+number of threads: 4
+maximum number of tries: 1
+duration: 60 s
+number of transactions actually processed: 102259
+number of failed transactions: 0 (0.000%)
+latency average = 5.805 ms
+latency stddev = 2.843 ms
+average connection time = 2.327 ms
+tps = 1704.198054 (including reconnection times)
+starting vacuum...end.
+progress: 5.0 s, 1696.8 tps, lat 5.842 ms stddev 2.840, 0 failed
+progress: 10.0 s, 1704.9 tps, lat 5.814 ms stddev 2.836, 0 failed
+progress: 15.0 s, 1701.8 tps, lat 5.801 ms stddev 2.851, 0 failed
+progress: 20.0 s, 1702.2 tps, lat 5.791 ms stddev 2.861, 0 failed
+progress: 25.0 s, 1703.8 tps, lat 5.809 ms stddev 2.849, 0 failed
+progress: 30.0 s, 1708.1 tps, lat 5.780 ms stddev 2.844, 0 failed
+progress: 35.0 s, 1704.8 tps, lat 5.828 ms stddev 2.849, 0 failed
+progress: 40.0 s, 1709.8 tps, lat 5.770 ms stddev 2.867, 0 failed
+progress: 45.0 s, 1704.5 tps, lat 5.780 ms stddev 2.848, 0 failed
+progress: 50.0 s, 1705.8 tps, lat 5.801 ms stddev 2.818, 0 failed
+progress: 55.0 s, 1704.5 tps, lat 5.824 ms stddev 2.823, 0 failed
+progress: 60.0 s, 1702.2 tps, lat 5.823 ms stddev 2.824, 0 failed

@@ -51,7 +51,7 @@ results/{topology}/{hardware}--{workload}/{workload}_{timestamp}.md
 │       ├── r8g.4xlarge.tfvars          # 16 vCPU, 128GB RAM
 │       └── c8g.2xlarge.tfvars          # 8 vCPU, 16GB RAM (compute)
 │
-├── scripts2/
+├── scripts/                            # Benchmark framework
 │   ├── core/                           # Benchmark engine
 │   │   ├── bench.py                    # Main entry point
 │   │   ├── config_loader.py            # Merge hardware + workload configs
@@ -95,7 +95,7 @@ results/{topology}/{hardware}--{workload}/{workload}_{timestamp}.md
 │       └── {topology}/{hardware}--{workload}/
 │           └── {workload}_{timestamp}.md
 │
-└── docs2/                              # Documentation
+└── docs/                               # Documentation
     ├── ARCHITECTURE.md                 # This file
     ├── QUICKSTART.md                   # Getting started
     ├── BENCHMARKING.md                 # Running benchmarks
@@ -283,19 +283,19 @@ cd terraform/topologies/single-node
 terraform apply -var-file=../../hardware/r8g.2xlarge.tfvars
 
 # 2. Sync scripts
-rsync -avz scripts2/ ubuntu@<IP>:~/scripts2/
+rsync -avz scripts/ ubuntu@<IP>:~/scripts/
 
 # 3. Setup OS and disks
 ssh ubuntu@<IP>
-sudo ./scripts2/setup/01-os-tuning.sh
-sudo ./scripts2/setup/02-raid-setup.sh
+sudo ./scripts/setup/01-os-tuning.sh
+sudo ./scripts/setup/02-raid-setup.sh
 
 # 4. Install and configure PostgreSQL
-sudo ./scripts2/postgres/install.sh
-sudo ./scripts2/postgres/configure.sh --hardware r8g.2xlarge --workload tpc-b
+sudo ./scripts/postgres/install.sh
+sudo ./scripts/postgres/configure.sh --hardware r8g.2xlarge --workload tpc-b
 
 # 5. Run benchmark
-sudo python3 scripts2/core/bench.py \
+sudo python3 scripts/core/bench.py \
   --topology single-node \
   --hardware r8g.2xlarge \
   --workload tpc-b \

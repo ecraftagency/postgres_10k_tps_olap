@@ -1,528 +1,384 @@
 #!/usr/bin/env python3
 """
-Disk Benchmark Tool for PostgreSQL OLTP on RAID10 EBS gp3
+PostgreSQL Benchmark Tool
 
-Configuration is loaded from scenarios.json
-Each scenario runs N commands in parallel and collects all outputs
+Usage:
+    sudo python3 bench.py <scenario_id>
+    sudo python3 bench.py 11        # Run TPC-B benchmark
+    sudo python3 bench.py --help    # Show all scenarios
+
+All configuration is in scenarios.json
 """
+import json
 import os
+import re
+import shlex
+import signal
 import subprocess
 import sys
-import json
-import shlex
-import urllib.request
-import urllib.error
-import signal
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 from dataclasses import dataclass
-
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
+from typing import Dict, List, Optional
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
-OUTPUT_DIR = SCRIPT_DIR / "results"
 SCENARIOS_FILE = SCRIPT_DIR / "scenarios.json"
-
-# PgCat connection pooler config (for --via-pgcat mode)
-# Run benchmark from proxy server, so host = localhost
-PGCAT_CONFIG = {
-    "host": os.environ.get("PGCAT_HOST", "localhost"),
-    "port": os.environ.get("PGCAT_PORT", "5432"),
-    "user": os.environ.get("PGCAT_USER", "postgres"),
-    "password": os.environ.get("PGCAT_PASSWORD", ""),
-    "database": os.environ.get("PGCAT_DATABASE", "pgbench"),
-}
-
-# Gemini API for AI analysis
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+HARDWARE_ENV = SCRIPT_DIR / "hardware.env"
+RESULTS_DIR = SCRIPT_DIR / "results"
 
 
-def load_scenarios() -> tuple:
-    """Load DISKS and SCENARIOS from scenarios.json"""
-    if not SCENARIOS_FILE.exists():
-        print(f"Error: {SCENARIOS_FILE} not found")
-        sys.exit(1)
+def get_hardware_context() -> Dict:
+    """
+    Get hardware context for benchmark parameters.
 
-    with open(SCENARIOS_FILE, "r") as f:
-        data = json.load(f)
+    Priority (high to low):
+    1. hardware.env (explicit override)
+    2. Auto-detect from system
 
-    return data["disks"], data["scenarios"]
+    Returns dict with: vcpu, threads, clients, scale
+    """
+    # Auto-detect defaults
+    vcpu = os.cpu_count() or 2
+    ram_gb = 16  # Conservative default
 
-
-# Load configuration
-DISKS, SCENARIOS = load_scenarios()
-
-# =============================================================================
-# AI PROMPT
-# =============================================================================
-
-AI_PROMPT = """You are an expert database infrastructure engineer. Analyze this disk benchmark report and provide:
-
-1. **Executive Summary** - 2-3 sentences about overall system readiness for PostgreSQL OLTP
-
-2. **Score Card** (MUST include this section with exact format):
-
-| Aspect | Score | Assessment |
-|--------|-------|------------|
-| **Speed** | X/10 | (Compare actual IOPS/latency vs theoretical limits) |
-| **Stability** | X/10 | (How close is P99 to P50? Jitter analysis) |
-| **Config Alignment** | X/10 | (RAID chunk, XFS sunit/swidth, mount options) |
-
-3. **Detailed Analysis** - Key observations from each command output
-
-4. **Recommendations** - Prioritized list of improvements (if any)
-
-IMPORTANT:
-- EBS gp3 single-operation latency is ~1.5-2.5ms (network storage)
-- Max IOPS @ QD1+fsync = 1000ms / latency_ms ≈ 400-600 IOPS
-- High latency at high iodepth is NORMAL (queueing effect)
-
-Format your response as clean, well-structured Markdown.
-
----
-
-BENCHMARK REPORT TO ANALYZE:
-
-"""
-
-
-# =============================================================================
-# HELPER FUNCTIONS
-# =============================================================================
-
-def run_cmd(cmd: str, capture: bool = True, timeout: int = 10) -> str:
-    """Run shell command and return output"""
+    # Try to get RAM from system
     try:
-        if capture:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout)
-            return result.stdout.strip()
-        else:
-            subprocess.run(cmd, shell=True, check=True)
-            return ""
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    ram_kb = int(line.split()[1])
+                    ram_gb = ram_kb // (1024 * 1024)
+                    break
     except Exception:
-        return ""
+        pass
 
+    # Override from hardware.env if exists
+    if HARDWARE_ENV.exists():
+        try:
+            with open(HARDWARE_ENV) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+                        if key == "VCPU":
+                            vcpu = int(value)
+                        elif key == "RAM_GB":
+                            ram_gb = int(value)
+        except Exception:
+            pass
 
-def collect_system_info() -> str:
-    """Collect hardware context and system configuration"""
-    sections = []
-
-    # Instance
-    sections.append("=== INSTANCE ===")
-    sections.append(run_cmd("curl -s http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null || echo 'unknown'"))
-    sections.append(run_cmd("uname -a"))
-    sections.append(run_cmd("lscpu | grep -E '^CPU\\(s\\)|^Model name|^Architecture'"))
-    sections.append(run_cmd("free -h"))
-
-    # OS Tuning
-    sections.append("\n=== OS TUNING ===")
-    sections.append(run_cmd("sysctl vm.swappiness vm.dirty_ratio vm.dirty_background_ratio vm.dirty_expire_centisecs vm.dirty_writeback_centisecs 2>/dev/null"))
-    sections.append(run_cmd("cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null"))
-
-    # Network
-    sections.append("\n=== NETWORK ===")
-    sections.append(run_cmd("sysctl net.core.somaxconn net.core.rmem_max net.core.wmem_max net.ipv4.tcp_tw_reuse net.ipv4.tcp_fin_timeout 2>/dev/null"))
-
-    # Disk - RAID
-    sections.append("\n=== DISK - RAID ===")
-    sections.append(run_cmd("cat /proc/mdstat"))
-    sections.append(run_cmd("mdadm --detail /dev/md0 2>/dev/null"))
-    sections.append(run_cmd("mdadm --detail /dev/md1 2>/dev/null"))
-
-    # Disk - Block Tuning
-    sections.append("\n=== DISK - BLOCK TUNING ===")
-    for dev in ["md0", "md1"]:
-        sections.append(f"--- {dev} ---")
-        sections.append(f"scheduler: {run_cmd(f'cat /sys/block/{dev}/queue/scheduler 2>/dev/null')}")
-        sections.append(f"read_ahead_kb: {run_cmd(f'cat /sys/block/{dev}/queue/read_ahead_kb 2>/dev/null')}")
-        sections.append(f"nr_requests: {run_cmd(f'cat /sys/block/{dev}/queue/nr_requests 2>/dev/null')}")
-
-    # Disk - Mount
-    sections.append("\n=== DISK - MOUNT ===")
-    sections.append(run_cmd("mount | grep -E '/data|/wal'"))
-    sections.append(run_cmd("df -h /data /wal 2>/dev/null"))
-
-    # Disk - XFS
-    sections.append("\n=== DISK - XFS ===")
-    sections.append(run_cmd("xfs_info /data 2>/dev/null"))
-    sections.append(run_cmd("xfs_info /wal 2>/dev/null"))
-
-    return "\n".join(sections)
-
-
-def get_display_name(scenario: dict, disk: dict) -> str:
-    """Generate display name for scenario"""
-    return f"[{disk['name']} DISK] {scenario['name']} - {scenario['desc'].split(' - ')[0]}"
-
-
-def get_export_prefix(scenario: dict, disk: dict) -> str:
-    """Generate export filename prefix - uses scenario id which already has disk prefix"""
-    return scenario['id']
-
-
-def build_iostat_filter(disk: dict) -> str:
-    """Build iostat grep filter for target volumes"""
-    device_name = disk["device"].split("/")[-1]  # md0 or md1
-    volumes = "|".join(disk["volumes"])
-    return f"{device_name}|{volumes}"
-
-
-def call_gemini(prompt: str, api_key: str) -> str:
-    """Call Gemini API and return response text"""
-    request_body = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 8192,
-        }
+    # Calculate derived values
+    # threads = vCPU (match CPU cores)
+    # clients = vCPU * 12 (reasonable concurrency)
+    # scale = 1250 (fixed, ~12GB dataset fits in shared_buffers)
+    return {
+        "vcpu": vcpu,
+        "ram_gb": ram_gb,
+        "threads": vcpu,
+        "clients": vcpu * 12,
+        "scale": 1250,
     }
 
-    url = f"{GEMINI_API_URL}?key={api_key}"
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(request_body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=120) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts:
-                    return parts[0].get("text", "")
-            return "No response from AI"
-    except urllib.error.HTTPError as e:
-        return f"API Error {e.code}: {e.read().decode('utf-8')}"
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
-# =============================================================================
-# BENCHMARK RUNNER
-# =============================================================================
 
 @dataclass
 class CommandResult:
-    """Result of a single command execution"""
     name: str
     cmd_str: str
     output: str
     success: bool
+    is_primary: bool = False
 
 
-def modify_cmd_for_pgcat(cmd: List[str], via_pgcat: bool) -> List[str]:
-    """Modify pgbench/psql commands to connect via PgCat instead of local socket"""
-    if not via_pgcat:
-        return cmd
-
-    # Find pgbench or psql in the command (may be after sudo -u postgres)
-    pg_cmd_idx = -1
-    for i, arg in enumerate(cmd):
-        if arg in ("pgbench", "psql"):
-            pg_cmd_idx = i
-            break
-
-    if pg_cmd_idx == -1:
-        return cmd  # Not a postgres command
-
-    # Start fresh - skip "sudo -u postgres" prefix if present
-    # When using PgCat, we connect over network, no need for sudo
-    start_idx = 0
-    if len(cmd) >= 3 and cmd[0] == "sudo" and cmd[1] == "-u" and cmd[2] == "postgres":
-        start_idx = 3  # Skip sudo -u postgres
-
-    # Build new command starting with pgbench/psql
-    new_cmd = [cmd[pg_cmd_idx]]
-
-    # Add connection params right after pgbench/psql
-    new_cmd.extend([
-        "-h", PGCAT_CONFIG["host"],
-        "-p", PGCAT_CONFIG["port"],
-        "-U", PGCAT_CONFIG["user"],
-    ])
-
-    # Process remaining args - skip existing connection flags and final db name
-    remaining = cmd[pg_cmd_idx + 1:]
-    skip_next = False
-
-    for i, arg in enumerate(remaining):
-        if skip_next:
-            skip_next = False
-            continue
-
-        # Skip existing connection flags
-        if arg in ("-h", "-p", "-U", "-d", "--host", "--port", "--username", "--dbname"):
-            skip_next = True
-            continue
-
-        # Skip last positional arg if it looks like a database name (no dash prefix)
-        if i == len(remaining) - 1 and not arg.startswith("-") and arg not in ("tpcb-like",):
-            continue
-
-        new_cmd.append(arg)
-
-    # Add database at the end
-    new_cmd.append(PGCAT_CONFIG["database"])
-
-    return new_cmd
+def load_scenarios() -> Dict:
+    """Load scenarios from JSON"""
+    with open(SCENARIOS_FILE) as f:
+        return json.load(f)
 
 
-def run_sequential_commands(
-    commands: List[dict],
-    phase_name: str,
-    export_prefix: str,
-    timestamp: str,
-    duration: int,
-    iostat_filter: str,
-    via_pgcat: bool = False,
-) -> List[CommandResult]:
-    """
-    Run a list of commands sequentially.
-    Returns list of CommandResult.
-    """
-    results = []
+def show_help():
+    """Show all available scenarios"""
+    data = load_scenarios()
+    scenarios = data.get("scenarios", {})
 
-    if not commands:
-        return results
+    print("""
+================================================================================
+POSTGRESQL BENCHMARK TOOL
+================================================================================
 
-    print(f"\n--- {phase_name} Phase ---")
+Usage: sudo python3 bench.py <scenario_id>
 
-    for cmd_def in commands:
-        cmd = cmd_def["cmd"].copy()
+================================================================================
+FIO DISK BENCHMARKS (1-10)
+================================================================================
+""")
 
-        # Replace placeholders
-        cmd = [str(c).replace("{duration}", str(duration)) for c in cmd]
+    # FIO scenarios
+    for sid in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]:
+        if sid in scenarios:
+            s = scenarios[sid]
+            target = s.get("target_disk", "data").upper()
+            print(f"  [{sid:>2}] {s['name']:<20} [{target:<4}] {s['desc']}")
 
-        # Modify for PgCat if needed
-        cmd = modify_cmd_for_pgcat(cmd, via_pgcat)
+    print("""
+================================================================================
+POSTGRESQL BENCHMARKS (11-14) - pgbench
+================================================================================
+""")
 
-        cmd_str = " ".join(shlex.quote(c) for c in cmd)
+    # pgbench scenarios
+    for sid in ["11", "12", "13", "14"]:
+        if sid in scenarios:
+            s = scenarios[sid]
+            print(f"  [{sid}] {s['name']:<20} {s['desc']}")
 
-        print(f"  Running: {cmd_def['name']}...")
+    print("""
+================================================================================
+SYSBENCH OLTP (15-18)
+================================================================================
+""")
 
-        # Output file
-        output_file = OUTPUT_DIR / f"{export_prefix}_{phase_name.lower()}_{cmd_def['name']}_{timestamp}.txt"
+    # sysbench scenarios
+    for sid in ["15", "16", "17", "18"]:
+        if sid in scenarios:
+            s = scenarios[sid]
+            print(f"  [{sid}] {s['name']:<20} {s['desc']}")
 
+    print("""
+================================================================================
+EXAMPLES
+================================================================================
+
+  sudo python3 bench.py 1     # FIO: WAL commit latency
+  sudo python3 bench.py 11    # pgbench: TPC-B write intensive
+  sudo python3 bench.py 15    # sysbench: OLTP read-only
+
+================================================================================
+""")
+
+
+def collect_system_info() -> str:
+    """Collect hardware and system configuration"""
+    def run_cmd(cmd: str) -> str:
         try:
-            # Run command and capture output
-            result = subprocess.run(
-                cmd_str,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=duration + 60  # Allow some buffer
-            )
-            output = result.stdout + result.stderr
-            output_file.write_text(output)
-            success = result.returncode == 0
-        except subprocess.TimeoutExpired:
-            output = f"Command timed out after {duration + 60}s"
-            success = False
-        except Exception as e:
-            output = f"Command failed: {e}"
-            success = False
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+            return result.stdout.strip()
+        except Exception:
+            return ""
 
-        results.append(CommandResult(
-            name=f"{phase_name}:{cmd_def['name']}",
-            cmd_str=cmd_str,
-            output=output,
-            success=success,
-        ))
-
-        # Cleanup if specified
-        cleanup_path = cmd_def.get("cleanup")
-        if cleanup_path:
-            os.system(f"rm -f {cleanup_path} 2>/dev/null")
-
-    return results
+    sections = [
+        "=== INSTANCE ===",
+        run_cmd("uname -a"),
+        run_cmd("lscpu | grep -E '^CPU\\(s\\)|^Model name|^Architecture'"),
+        run_cmd("free -h"),
+        "",
+        "=== OS TUNING ===",
+        run_cmd("sysctl vm.swappiness vm.dirty_ratio vm.dirty_background_ratio 2>/dev/null"),
+        run_cmd("cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null"),
+        "",
+        "=== HUGEPAGES ===",
+        run_cmd("grep -E 'HugePages|Hugepagesize' /proc/meminfo"),
+        "",
+        "=== DISK - RAID ===",
+        run_cmd("cat /proc/mdstat"),
+        "",
+        "=== DISK - MOUNT ===",
+        run_cmd("mount | grep -E '/data|/wal'"),
+        run_cmd("df -h /data /wal 2>/dev/null"),
+        "",
+        "=== POSTGRESQL ===",
+        run_cmd("sudo -u postgres psql -t -c \"SELECT name, setting, unit FROM pg_settings WHERE name IN ('shared_buffers','work_mem','effective_cache_size','max_connections','wal_buffers','max_wal_size','huge_pages')\" 2>/dev/null"),
+    ]
+    return "\n".join(sections)
 
 
-def run_benchmark(scenario_id: str, via_pgcat: bool = False) -> Optional[Path]:
-    """
-    Run a benchmark scenario with begin/parallel/end phases.
+def substitute_vars(text: str, variables: Dict) -> str:
+    """Substitute {var} placeholders in text"""
+    result = str(text)
+    for key, value in variables.items():
+        result = result.replace(f"{{{key}}}", str(value))
+    return result
 
-    Structure:
-    - begin: commands to run sequentially before benchmark
-    - parallel: commands to run concurrently (one marked primary=true controls duration)
-    - end: commands to run sequentially after benchmark
 
-    Args:
-        scenario_id: The scenario number to run
-        via_pgcat: If True, connect via PgCat pooler instead of direct PostgreSQL
+def run_benchmark(scenario_id: str) -> Path:
+    """Run a benchmark scenario"""
+    data = load_scenarios()
+    scenarios = data.get("scenarios", {})
+    disks = data.get("disks", {})
+    json_defaults = data.get("defaults", {})
 
-    Returns path to the generated report.
-    """
-    import time
+    if scenario_id not in scenarios:
+        print(f"Error: Scenario {scenario_id} not found")
+        print("Run 'python3 bench.py --help' to see available scenarios")
+        sys.exit(1)
 
-    scenario = SCENARIOS[scenario_id]
-    disk = DISKS[scenario["target_disk"]]
-    duration = scenario.get("duration", 60)
+    scenario = scenarios[scenario_id]
+    disk = disks.get(scenario.get("target_disk", "data"), {})
 
-    display_name = get_display_name(scenario, disk)
-    export_prefix = get_export_prefix(scenario, disk)
+    # Get hardware context (auto-detect + hardware.env)
+    hw = get_hardware_context()
 
-    # Add PgCat suffix if connecting via pooler
-    if via_pgcat:
-        display_name = f"{display_name} [via PgCat]"
-        export_prefix = f"{export_prefix}_via_pgcat"
-        # Set PGPASSWORD environment variable for pgbench/psql
-        if PGCAT_CONFIG["password"]:
-            os.environ["PGPASSWORD"] = PGCAT_CONFIG["password"]
+    # Build variables with priority: scenario > json_defaults > hardware
+    variables = {
+        "duration": json_defaults.get("duration", 60),
+        "clients": hw["clients"],      # From hardware context
+        "threads": hw["threads"],      # From hardware context
+        "scale": hw["scale"],          # From hardware context
+        "vcpu": hw["vcpu"],
+        "ram_gb": hw["ram_gb"],
+    }
+    # Override with json defaults if explicitly set
+    for key in ["clients", "threads", "scale"]:
+        if key in json_defaults:
+            variables[key] = json_defaults[key]
+    # Override with scenario-specific values (highest priority)
+    for key in ["duration", "clients", "threads", "scale"]:
+        if key in scenario:
+            variables[key] = scenario[key]
 
-    print(f"\n>>> Running: {display_name}")
-    print("=" * 60)
+    duration = variables["duration"]
 
-    # Create output directory
+    print(f"\n{'='*70}")
+    print(f"SCENARIO {scenario_id}: {scenario['name']}")
+    print(f"{'='*70}")
+    print(f"Hardware: {hw['vcpu']} vCPU, {hw['ram_gb']} GB RAM")
+    print(f"Description: {substitute_vars(scenario['desc'], variables)}")
+    print(f"Target: {disk.get('name', 'N/A')}")
+    print(f"Duration: {duration}s | Clients: {variables['clients']} | Threads: {variables['threads']}")
+
+    # Setup
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_dir = RESULTS_DIR / scenario.get("id", f"scenario_{scenario_id}")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Collect system info
-    print("Collecting system info...")
+    print("\nCollecting system info...")
     system_info = collect_system_info()
 
-    # Prepare iostat filter
-    iostat_filter = build_iostat_filter(disk)
+    # Build iostat filter
+    volumes = disk.get("volumes", [])
+    iostat_filter = "|".join(volumes) if volumes else "md0|md1"
+
     command_results: List[CommandResult] = []
 
-    # =========================================================================
-    # PHASE 1: BEGIN (sequential)
-    # =========================================================================
-    begin_commands = scenario.get("begin", [])
-    begin_results = run_sequential_commands(
-        commands=begin_commands,
-        phase_name="Begin",
-        export_prefix=export_prefix,
-        timestamp=timestamp,
-        duration=duration,
-        iostat_filter=iostat_filter,
-        via_pgcat=via_pgcat,
-    )
-    command_results.extend(begin_results)
+    # === BEGIN PHASE ===
+    begin_cmds = scenario.get("begin", [])
+    if begin_cmds:
+        print("\n--- Begin Phase ---")
+        for cmd_def in begin_cmds:
+            cmd = [substitute_vars(str(c), variables) for c in cmd_def.get("cmd", [])]
+            cmd_str = " ".join(shlex.quote(c) for c in cmd)
+            print(f"  Running: {cmd_def.get('name', 'cmd')}...")
 
-    # =========================================================================
-    # PHASE 2: PARALLEL (concurrent)
-    # =========================================================================
-    parallel_commands = scenario.get("parallel", [])
+            try:
+                result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True, timeout=60)
+                output = result.stdout + result.stderr
+            except Exception as e:
+                output = str(e)
+
+            command_results.append(CommandResult(
+                name=f"begin:{cmd_def.get('name', 'cmd')}",
+                cmd_str=cmd_str,
+                output=output,
+                success=True,
+            ))
+
+    # === PARALLEL PHASE ===
+    parallel_cmds = scenario.get("parallel", [])
     background_procs = []
     primary_cmd = None
 
-    # Find primary command and start background commands
-    print(f"\n--- Parallel Phase ({duration}s) ---")
+    print(f"\n--- Benchmark Phase ({duration}s) ---")
 
-    for cmd_def in parallel_commands:
+    # Start background collectors
+    bg_variables = {**variables, "duration": duration + 10}  # Extra buffer for collectors
+    for cmd_def in parallel_cmds:
         if cmd_def.get("primary", False):
             primary_cmd = cmd_def
+            continue
+
+        cmd = [substitute_vars(str(c), bg_variables) for c in cmd_def.get("cmd", [])]
+        cmd_str = " ".join(shlex.quote(c) for c in cmd)
+
+        output_file = output_dir / f"{cmd_def.get('name', 'bg')}_{timestamp}.txt"
+
+        if cmd_def.get("filter_volumes", False):
+            # Use stdbuf to disable pipe buffering so output is written immediately
+            full_cmd = f"stdbuf -oL {cmd_str} | stdbuf -oL grep -E 'Device|{iostat_filter}' > {output_file} 2>&1"
         else:
-            # Start as background process
-            cmd = cmd_def["cmd"].copy()
+            full_cmd = f"{cmd_str} > {output_file} 2>&1"
 
-            # Replace placeholders (add buffer for background commands)
-            cmd = [str(c).replace("{duration}", str(duration + 10)) for c in cmd]
+        proc = subprocess.Popen(full_cmd, shell=True, preexec_fn=os.setsid)
+        background_procs.append({
+            "proc": proc,
+            "name": cmd_def.get("name", "bg"),
+            "cmd_str": cmd_str,
+            "output_file": output_file,
+        })
+        print(f"  Started: {cmd_def.get('name', 'bg')}")
 
-            # Modify for PgCat if needed
-            cmd = modify_cmd_for_pgcat(cmd, via_pgcat)
-
-            cmd_str = " ".join(shlex.quote(c) for c in cmd)
-
-            # Output file
-            output_file = OUTPUT_DIR / f"{export_prefix}_{cmd_def['name']}_{timestamp}.txt"
-
-            # Build full command with filter if needed
-            if cmd_def.get("filter_volumes", False):
-                full_cmd = f"{cmd_str} | grep -E 'Device|{iostat_filter}' > {output_file} 2>&1"
-            else:
-                full_cmd = f"{cmd_str} > {output_file} 2>&1"
-
-            # Start background process
-            proc = subprocess.Popen(full_cmd, shell=True, preexec_fn=os.setsid)
-            background_procs.append({
-                "proc": proc,
-                "name": cmd_def["name"],
-                "cmd_str": cmd_str,
-                "output_file": output_file,
-            })
-            print(f"  Started background: {cmd_def['name']}")
-
-    # Wait for background processes to initialize
+    # Wait for backgrounds to start
     if background_procs:
         time.sleep(2)
 
-    # Run primary command in foreground (controls benchmark duration)
+    # Run primary command
     if primary_cmd:
-        cmd = primary_cmd["cmd"].copy()
-
-        # Replace placeholders
-        cmd = [str(c).replace("{duration}", str(duration)) for c in cmd]
-
-        # Modify for PgCat if needed
-        cmd = modify_cmd_for_pgcat(cmd, via_pgcat)
-
+        cmd = [substitute_vars(str(c), variables) for c in primary_cmd.get("cmd", [])]
         cmd_str = " ".join(shlex.quote(c) for c in cmd)
+        output_file = output_dir / f"{primary_cmd.get('name', 'primary')}_{timestamp}.txt"
 
-        print(f"  Running primary: {primary_cmd['name']} ({duration}s)...")
+        print(f"  Running: {primary_cmd.get('name', 'primary')} ({duration}s)...")
 
-        # Output file
-        output_file = OUTPUT_DIR / f"{export_prefix}_{primary_cmd['name']}_{timestamp}.txt"
-
-        # Check if command supports --output= flag (fio-specific)
-        is_fio = cmd[0] == "fio" or (len(cmd) > 1 and cmd[1] == "fio")
+        is_fio = "fio" in cmd
 
         try:
             if is_fio:
-                # fio uses --output= flag
                 cmd_with_output = cmd + [f"--output={output_file}"]
-                subprocess.run(cmd_with_output, check=True)
+                subprocess.run(cmd_with_output, check=True, timeout=duration + 120)
                 output = output_file.read_text() if output_file.exists() else "No output"
             else:
-                # Other commands: capture stdout/stderr directly
                 result = subprocess.run(
                     cmd_str,
                     shell=True,
                     capture_output=True,
                     text=True,
-                    timeout=duration + 120  # Buffer for startup/shutdown
+                    timeout=duration + 120,
                 )
                 output = result.stdout + result.stderr
                 output_file.write_text(output)
             success = True
-        except subprocess.TimeoutExpired:
-            output = f"Command timed out after {duration + 120}s"
-            success = False
-        except subprocess.CalledProcessError as e:
-            output = f"Command failed: {e}"
+        except Exception as e:
+            output = str(e)
             success = False
 
         command_results.append(CommandResult(
-            name=primary_cmd["name"],
+            name=primary_cmd.get("name", "primary"),
             cmd_str=cmd_str,
             output=output,
             success=success,
+            is_primary=True,
         ))
 
-        # Cleanup test file
+        # Cleanup
         cleanup_path = primary_cmd.get("cleanup")
         if cleanup_path:
             os.system(f"rm -f {cleanup_path} 2>/dev/null")
 
-    # Stop background processes and collect outputs
+    # Stop background processes
     if background_procs:
-        print("  Stopping background commands...")
+        print("  Stopping collectors...")
         time.sleep(2)
 
         for bg in background_procs:
-            # Kill background process
             try:
                 os.killpg(os.getpgid(bg["proc"].pid), signal.SIGTERM)
             except Exception:
                 pass
 
-            # Read output
             output = bg["output_file"].read_text() if bg["output_file"].exists() else "No output"
             command_results.append(CommandResult(
                 name=bg["name"],
@@ -531,256 +387,220 @@ def run_benchmark(scenario_id: str, via_pgcat: bool = False) -> Optional[Path]:
                 success=True,
             ))
 
-    # =========================================================================
-    # PHASE 3: END (sequential)
-    # =========================================================================
-    end_commands = scenario.get("end", [])
-    end_results = run_sequential_commands(
-        commands=end_commands,
-        phase_name="End",
-        export_prefix=export_prefix,
-        timestamp=timestamp,
-        duration=duration,
-        iostat_filter=iostat_filter,
-        via_pgcat=via_pgcat,
-    )
-    command_results.extend(end_results)
+    # === END PHASE ===
+    end_cmds = scenario.get("end", [])
+    if end_cmds:
+        print("\n--- End Phase ---")
+        for cmd_def in end_cmds:
+            cmd = [substitute_vars(str(c), variables) for c in cmd_def.get("cmd", [])]
+            cmd_str = " ".join(shlex.quote(c) for c in cmd)
+            print(f"  Running: {cmd_def.get('name', 'cmd')}...")
+            subprocess.run(cmd_str, shell=True, capture_output=True, timeout=60)
 
-    # Generate markdown report
-    markdown = generate_report(
+    # === GENERATE REPORT ===
+    report_path = generate_report(
         scenario=scenario,
         disk=disk,
         system_info=system_info,
         command_results=command_results,
+        output_dir=output_dir,
         timestamp=timestamp,
+        variables=variables,
     )
 
-    # Save report
-    report_file = OUTPUT_DIR / f"{export_prefix}_report_{timestamp}.md"
-    report_file.write_text(markdown)
-    print(f"\nReport saved to: {report_file}")
+    # Print summary
+    print_summary(command_results)
 
-    # Print quick summary
-    print_quick_summary(command_results)
-
-    # AI Analysis (optional)
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if api_key:
-        print("\n" + "=" * 60)
-        print("Sending to AI for analysis...")
-        print("=" * 60)
-
-        ai_response = call_gemini(AI_PROMPT + markdown, api_key)
-
-        ai_file = OUTPUT_DIR / f"{export_prefix}_report_ai_{timestamp}.md"
-        ai_markdown = f"""# AI Analysis: {display_name}
-
-**Generated:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-
----
-
-{ai_response}
-
----
-
-## Appendix: Raw Benchmark Data
-
-<details>
-<summary>Click to expand raw data</summary>
-
-{markdown}
-
-</details>
-"""
-        ai_file.write_text(ai_markdown)
-        print(f"AI analysis saved to: {ai_file}")
-
-        # Print score card preview
-        print_ai_scorecard(ai_response)
-
-        return ai_file
-    else:
-        print("\n[!] GEMINI_API_KEY not set - skipping AI analysis")
-        print("    Set it with: export GEMINI_API_KEY=your_key")
-        return report_file
+    print(f"\nReport: {report_path}")
+    return report_path
 
 
 def generate_report(
-    scenario: dict,
-    disk: dict,
+    scenario: Dict,
+    disk: Dict,
     system_info: str,
     command_results: List[CommandResult],
+    output_dir: Path,
     timestamp: str,
-) -> str:
-    """Generate markdown report from benchmark results"""
+    variables: Optional[Dict] = None,
+) -> Path:
+    """Generate markdown report"""
+    variables = variables or {}
 
-    display_name = get_display_name(scenario, disk)
-    volumes_str = ", ".join(disk["volumes"])
+    # Find primary result
+    primary = next((r for r in command_results if r.is_primary), None)
+    metrics = {}
 
-    sections = []
+    if primary:
+        if "fio" in primary.name.lower():
+            metrics = parse_fio(primary.output)
+        elif "pgbench" in primary.name.lower():
+            metrics = parse_pgbench(primary.output)
+        elif "sysbench" in primary.name.lower():
+            metrics = parse_sysbench(primary.output)
 
-    # Header
-    sections.append(f"# Benchmark: {display_name}")
-    sections.append("")
-    sections.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    sections.append(f"**Scenario:** {scenario['desc']}")
-    sections.append("")
-    sections.append("---")
-    sections.append("")
+    desc = substitute_vars(scenario['desc'], variables)
+    lines = [
+        f"# Benchmark: {scenario['name']}",
+        "",
+        f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"**Scenario:** {scenario['id']}",
+        f"**Description:** {desc}",
+        "",
+        "## Summary",
+        "",
+        "| Metric | Value |",
+        "|--------|-------|",
+    ]
 
-    # Target Disk
-    sections.append("## Target Disk")
-    sections.append("")
-    sections.append("| Property | Value |")
-    sections.append("|----------|-------|")
-    sections.append(f"| **Name** | **{disk['name']}** |")
-    sections.append(f"| **Mount Point** | `{disk['mount_point']}` |")
-    sections.append(f"| **Device** | `{disk['device']}` |")
-    sections.append(f"| **Volumes** | `{volumes_str}` |")
-    sections.append("")
-    sections.append("---")
-    sections.append("")
+    for key, value in metrics.items():
+        lines.append(f"| **{key}** | {value} |")
 
-    # System Configuration
-    sections.append("## System Configuration")
-    sections.append("")
-    sections.append("```")
-    sections.append(system_info)
-    sections.append("```")
-    sections.append("")
-    sections.append("---")
-    sections.append("")
+    lines.extend([
+        "",
+        "---",
+        "",
+        "## Target",
+        "",
+        f"- **Disk:** {disk.get('name', 'N/A')}",
+        f"- **Device:** {disk.get('device', 'N/A')}",
+        f"- **Mount:** {disk.get('mount_point', 'N/A')}",
+        "",
+        "---",
+        "",
+        "## System",
+        "",
+        "```",
+        system_info,
+        "```",
+        "",
+        "---",
+        "",
+    ])
 
-    # Commands and Outputs
+    # Command outputs
     for i, result in enumerate(command_results, 1):
-        sections.append(f"## Command {i}: {result.name}")
-        sections.append("")
-        sections.append("### Command")
-        sections.append("```bash")
-        sections.append(result.cmd_str)
-        sections.append("```")
-        sections.append("")
-        sections.append("### Output")
-        sections.append("```")
-        sections.append(result.output)
-        sections.append("```")
-        sections.append("")
-        sections.append("---")
-        sections.append("")
+        lines.extend([
+            f"## {i}. {result.name}",
+            "",
+            "```bash",
+            result.cmd_str,
+            "```",
+            "",
+            "```",
+            result.output[:8000] if len(result.output) > 8000 else result.output,
+            "```",
+            "",
+        ])
 
-    return "\n".join(sections)
+    report = "\n".join(lines)
+    report_path = output_dir / f"report_{timestamp}.md"
+    report_path.write_text(report)
 
-
-def print_quick_summary(command_results: List[CommandResult]):
-    """Print quick summary from fio output"""
-    print("\n--- Quick Summary ---")
-    for result in command_results:
-        if result.name == "fio":
-            for line in result.output.split("\n"):
-                if "IOPS=" in line or ("lat" in line.lower() and "percentiles" in line.lower()):
-                    print(line.strip())
-            break
+    return report_path
 
 
-def print_ai_scorecard(ai_response: str):
-    """Print AI score card from response"""
-    print("\n--- AI Score Card ---")
-    in_table = False
-    for line in ai_response.split("\n"):
-        if "| Aspect |" in line or "| **Speed**" in line or "| **Stability**" in line or "| **Config" in line:
-            print(line)
-            in_table = True
-        elif in_table and line.startswith("|"):
-            print(line)
-        elif in_table and not line.startswith("|"):
-            in_table = False
+def parse_fio(output: str) -> Dict[str, str]:
+    """Parse FIO output"""
+    metrics = {}
+
+    iops = re.search(r'IOPS=(\d+\.?\d*[kKmM]?)', output)
+    if iops:
+        metrics["IOPS"] = iops.group(1)
+
+    bw = re.search(r'BW=(\d+\.?\d*\s*[kKmMgG]?i?B/s)', output)
+    if bw:
+        metrics["Bandwidth"] = bw.group(1)
+
+    lat = re.search(r'lat.*avg=\s*(\d+\.?\d*)', output)
+    if lat:
+        metrics["Avg Latency"] = f"{lat.group(1)}us"
+
+    p99 = re.search(r'99\.00th=\[\s*(\d+)\]', output)
+    if p99:
+        metrics["P99 Latency"] = f"{p99.group(1)}us"
+
+    return metrics
 
 
-# =============================================================================
-# CLI
-# =============================================================================
+def parse_pgbench(output: str) -> Dict[str, str]:
+    """Parse pgbench output"""
+    metrics = {}
 
-def show_menu():
-    """Show interactive scenario menu"""
-    print("\n" + "=" * 60)
-    print("BENCHMARK TOOL - Disk & PostgreSQL")
-    print("=" * 60)
-    print("\nAvailable scenarios:\n")
+    tps = re.search(r'tps = ([\d.]+)', output)
+    if tps:
+        metrics["TPS"] = f"{float(tps.group(1)):,.0f}"
 
-    # Group by target
-    wal_scenarios = []
-    data_scenarios = []
-    postgres_scenarios = []
+    lat = re.search(r'latency average = ([\d.]+) ms', output)
+    if lat:
+        metrics["Avg Latency"] = f"{lat.group(1)}ms"
 
-    for key, scenario in SCENARIOS.items():
-        disk = DISKS[scenario["target_disk"]]
-        display_name = get_display_name(scenario, disk)
-        if scenario["target_disk"] == "wal":
-            wal_scenarios.append((key, display_name, scenario["desc"]))
-        elif scenario["target_disk"] == "postgres":
-            postgres_scenarios.append((key, display_name, scenario["desc"]))
-        else:
-            data_scenarios.append((key, display_name, scenario["desc"]))
+    stddev = re.search(r'latency stddev = ([\d.]+) ms', output)
+    if stddev:
+        metrics["Stddev"] = f"{stddev.group(1)}ms"
 
-    print("  WAL DISK:")
-    for key, name, desc in wal_scenarios:
-        print(f"    [{key}] {name}")
-        print(f"        {desc}\n")
+    txn = re.search(r'number of transactions actually processed: (\d+)', output)
+    if txn:
+        metrics["Transactions"] = f"{int(txn.group(1)):,}"
 
-    print("  DATA DISK:")
-    for key, name, desc in data_scenarios:
-        print(f"    [{key}] {name}")
-        print(f"        {desc}\n")
+    return metrics
 
-    if postgres_scenarios:
-        print("  POSTGRESQL:")
-        for key, name, desc in postgres_scenarios:
-            print(f"    [{key}] {name}")
-            print(f"        {desc}\n")
 
-    print("  [q] Quit\n")
+def parse_sysbench(output: str) -> Dict[str, str]:
+    """Parse sysbench output"""
+    metrics = {}
+
+    tps = re.search(r'transactions:\s+\d+\s+\(([\d.]+)\s+per sec', output)
+    if tps:
+        metrics["TPS"] = f"{float(tps.group(1)):,.0f}"
+
+    qps = re.search(r'queries:\s+\d+\s+\(([\d.]+)\s+per sec', output)
+    if qps:
+        metrics["QPS"] = f"{float(qps.group(1)):,.0f}"
+
+    lat = re.search(r'avg:\s+([\d.]+)', output)
+    if lat:
+        metrics["Avg Latency"] = f"{lat.group(1)}ms"
+
+    p95 = re.search(r'95th percentile:\s+([\d.]+)', output)
+    if p95:
+        metrics["P95 Latency"] = f"{p95.group(1)}ms"
+
+    return metrics
+
+
+def print_summary(results: List[CommandResult]):
+    """Print quick summary"""
+    print("\n--- Summary ---")
+
+    for result in results:
+        if result.is_primary:
+            if "fio" in result.name.lower():
+                for line in result.output.split("\n"):
+                    if "IOPS=" in line or "bw=" in line.lower():
+                        print(f"  {line.strip()}")
+            elif "pgbench" in result.name.lower():
+                for line in result.output.split("\n"):
+                    if "tps =" in line:
+                        print(f"  {line.strip()}")
+            elif "sysbench" in result.name.lower():
+                for line in result.output.split("\n"):
+                    if "transactions:" in line or "queries:" in line:
+                        print(f"  {line.strip()}")
 
 
 def main():
-    import argparse
-    parser = argparse.ArgumentParser(description="Disk Benchmark Tool")
-    parser.add_argument("--run", type=str, help="Run scenario directly (e.g., --run 1)")
-    parser.add_argument("--via-pgcat", action="store_true",
-                        help="Connect via PgCat pooler instead of direct PostgreSQL")
-    args = parser.parse_args()
+    if len(sys.argv) < 2 or sys.argv[1] in ["--help", "-h", "help"]:
+        show_help()
+        sys.exit(0)
+
+    scenario_id = sys.argv[1]
 
     if os.geteuid() != 0:
         print("Error: Must run as root (sudo)")
         sys.exit(1)
 
-    # Show PgCat config if enabled
-    if args.via_pgcat:
-        print(f"[PgCat Mode] Connecting via {PGCAT_CONFIG['host']}:{PGCAT_CONFIG['port']}")
-
-    # Non-interactive mode
-    if args.run:
-        if args.run in SCENARIOS:
-            run_benchmark(args.run, via_pgcat=args.via_pgcat)
-        else:
-            print(f"Unknown scenario: {args.run}")
-            print(f"Available: {', '.join(SCENARIOS.keys())}")
-            sys.exit(1)
-        return
-
-    # Interactive mode
-    while True:
-        show_menu()
-
-        choice = input("Select scenario: ").strip().lower()
-
-        if choice == "q":
-            print("Bye!")
-            break
-        elif choice in SCENARIOS:
-            run_benchmark(choice, via_pgcat=args.via_pgcat)
-            input("\nPress Enter to continue...")
-        else:
-            print("Invalid choice!")
+    run_benchmark(scenario_id)
 
 
 if __name__ == "__main__":

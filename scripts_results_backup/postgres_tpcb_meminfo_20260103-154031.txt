@@ -1,0 +1,325 @@
+15:40:31
+Dirty:               780 kB
+Writeback:           256 kB
+WritebackTmp:          0 kB
+---
+15:40:32
+Dirty:               764 kB
+Writeback:             0 kB
+WritebackTmp:          0 kB
+---
+15:40:33
+Dirty:               848 kB
+Writeback:           144 kB
+WritebackTmp:          0 kB
+---
+15:40:34
+Dirty:               464 kB
+Writeback:            32 kB
+WritebackTmp:          0 kB
+---
+15:40:35
+Dirty:               340 kB
+Writeback:           160 kB
+WritebackTmp:          0 kB
+---
+15:40:36
+Dirty:               684 kB
+Writeback:           296 kB
+WritebackTmp:          0 kB
+---
+15:40:37
+Dirty:               328 kB
+Writeback:            32 kB
+WritebackTmp:          0 kB
+---
+15:40:38
+Dirty:             16104 kB
+Writeback:          1128 kB
+WritebackTmp:          0 kB
+---
+15:40:39
+Dirty:            148324 kB
+Writeback:           400 kB
+WritebackTmp:          0 kB
+---
+15:40:40
+Dirty:            296700 kB
+Writeback:           136 kB
+WritebackTmp:          0 kB
+---
+15:40:41
+Dirty:            421564 kB
+Writeback:           688 kB
+WritebackTmp:          0 kB
+---
+15:40:42
+Dirty:            289964 kB
+Writeback:           640 kB
+WritebackTmp:          0 kB
+---
+15:40:43
+Dirty:            397928 kB
+Writeback:           304 kB
+WritebackTmp:          0 kB
+---
+15:40:44
+Dirty:            319764 kB
+Writeback:           316 kB
+WritebackTmp:          0 kB
+---
+15:40:45
+Dirty:            368996 kB
+Writeback:          1232 kB
+WritebackTmp:          0 kB
+---
+15:40:46
+Dirty:            206092 kB
+Writeback:          1224 kB
+WritebackTmp:          0 kB
+---
+15:40:47
+Dirty:            306596 kB
+Writeback:           400 kB
+WritebackTmp:          0 kB
+---
+15:40:48
+Dirty:            393948 kB
+Writeback:           624 kB
+WritebackTmp:          0 kB
+---
+15:40:49
+Dirty:            263488 kB
+Writeback:           296 kB
+WritebackTmp:          0 kB
+---
+15:40:50
+Dirty:            338528 kB
+Writeback:           504 kB
+WritebackTmp:          0 kB
+---
+15:40:51
+Dirty:            420136 kB
+Writeback:           416 kB
+WritebackTmp:          0 kB
+---
+15:40:52
+Dirty:             26308 kB
+Writeback:           320 kB
+WritebackTmp:          0 kB
+---
+15:40:53
+Dirty:             95520 kB
+Writeback:           504 kB
+WritebackTmp:          0 kB
+---
+15:40:54
+Dirty:            163004 kB
+Writeback:          1088 kB
+WritebackTmp:          0 kB
+---
+15:40:55
+Dirty:            196244 kB
+Writeback:           304 kB
+WritebackTmp:          0 kB
+---
+15:40:56
+Dirty:            192084 kB
+Writeback:          1264 kB
+WritebackTmp:          0 kB
+---
+15:40:57
+Dirty:            415748 kB
+Writeback:           232 kB
+WritebackTmp:          0 kB
+---
+15:40:58
+Dirty:            392836 kB
+Writeback:           212 kB
+WritebackTmp:          0 kB
+---
+15:40:59
+Dirty:            357152 kB
+Writeback:           136 kB
+WritebackTmp:          0 kB
+---
+15:41:00
+Dirty:            352252 kB
+Writeback:            64 kB
+WritebackTmp:          0 kB
+---
+15:41:01
+Dirty:            402504 kB
+Writeback:           196 kB
+WritebackTmp:          0 kB
+---
+15:41:02
+Dirty:            403416 kB
+Writeback:           252 kB
+WritebackTmp:          0 kB
+---
+15:41:03
+Dirty:            388636 kB
+Writeback:           124 kB
+WritebackTmp:          0 kB
+---
+15:41:04
+Dirty:            278240 kB
+Writeback:           420 kB
+WritebackTmp:          0 kB
+---
+15:41:05
+Dirty:            108552 kB
+Writeback:           288 kB
+WritebackTmp:          0 kB
+---
+15:41:06
+Dirty:            111888 kB
+Writeback:           164 kB
+WritebackTmp:          0 kB
+---
+15:41:07
+Dirty:            164748 kB
+Writeback:           140 kB
+WritebackTmp:          0 kB
+---
+15:41:08
+Dirty:            228504 kB
+Writeback:           244 kB
+WritebackTmp:          0 kB
+---
+15:41:09
+Dirty:            279048 kB
+Writeback:           108 kB
+WritebackTmp:          0 kB
+---
+15:41:10
+Dirty:            321468 kB
+Writeback:           232 kB
+WritebackTmp:          0 kB
+---
+15:41:11
+Dirty:            376792 kB
+Writeback:            56 kB
+WritebackTmp:          0 kB
+---
+15:41:12
+Dirty:            389196 kB
+Writeback:           312 kB
+WritebackTmp:          0 kB
+---
+15:41:13
+Dirty:            381228 kB
+Writeback:           200 kB
+WritebackTmp:          0 kB
+---
+15:41:14
+Dirty:            374092 kB
+Writeback:           172 kB
+WritebackTmp:          0 kB
+---
+15:41:15
+Dirty:            375364 kB
+Writeback:           124 kB
+WritebackTmp:          0 kB
+---
+15:41:16
+Dirty:            389660 kB
+Writeback:           376 kB
+WritebackTmp:          0 kB
+---
+15:41:17
+Dirty:            402456 kB
+Writeback:           156 kB
+WritebackTmp:          0 kB
+---
+15:41:18
+Dirty:            325032 kB
+Writeback:           304 kB
+WritebackTmp:          0 kB
+---
+15:41:19
+Dirty:            380112 kB
+Writeback:           100 kB
+WritebackTmp:          0 kB
+---
+15:41:20
+Dirty:            378484 kB
+Writeback:           264 kB
+WritebackTmp:          0 kB
+---
+15:41:21
+Dirty:            369532 kB
+Writeback:           272 kB
+WritebackTmp:          0 kB
+---
+15:41:22
+Dirty:            393660 kB
+Writeback:           600 kB
+WritebackTmp:          0 kB
+---
+15:41:23
+Dirty:            396816 kB
+Writeback:           224 kB
+WritebackTmp:          0 kB
+---
+15:41:24
+Dirty:            390312 kB
+Writeback:           324 kB
+WritebackTmp:          0 kB
+---
+15:41:25
+Dirty:            377120 kB
+Writeback:           336 kB
+WritebackTmp:          0 kB
+---
+15:41:26
+Dirty:            384080 kB
+Writeback:           220 kB
+WritebackTmp:          0 kB
+---
+15:41:27
+Dirty:            281704 kB
+Writeback:           508 kB
+WritebackTmp:          0 kB
+---
+15:41:28
+Dirty:            293688 kB
+Writeback:           164 kB
+WritebackTmp:          0 kB
+---
+15:41:29
+Dirty:            325296 kB
+Writeback:           132 kB
+WritebackTmp:          0 kB
+---
+15:41:30
+Dirty:            364660 kB
+Writeback:           160 kB
+WritebackTmp:          0 kB
+---
+15:41:31
+Dirty:            383496 kB
+Writeback:           364 kB
+WritebackTmp:          0 kB
+---
+15:41:32
+Dirty:            388100 kB
+Writeback:           712 kB
+WritebackTmp:          0 kB
+---
+15:41:33
+Dirty:            378292 kB
+Writeback:           720 kB
+WritebackTmp:          0 kB
+---
+15:41:34
+Dirty:            285176 kB
+Writeback:           212 kB
+WritebackTmp:          0 kB
+---
+15:41:35
+Dirty:            191724 kB
+Writeback:           224 kB
+WritebackTmp:          0 kB
+---

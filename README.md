@@ -2,7 +2,7 @@
 
 High-performance PostgreSQL benchmarking on AWS with EBS gp3 RAID10.
 
-**Latest Results:** 19,554 TPS on r8g.2xlarge ($290/mo) - see [results](scripts2/results/)
+**Latest Results:** 19,554 TPS on r8g.2xlarge ($290/mo) - see [results](scripts/results/)
 
 ## What This Is
 
@@ -20,11 +20,11 @@ cd terraform/topologies/single-node
 terraform apply -var-file=../../hardware/r8g.2xlarge.tfvars
 
 # 2. Sync scripts to server
-rsync -avz scripts2/ ubuntu@<IP>:~/scripts2/
+rsync -avz scripts/ ubuntu@<IP>:~/scripts/
 
 # 3. Run benchmark
 ssh ubuntu@<IP>
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
 ```
 
 ## Documentation
@@ -47,7 +47,7 @@ sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
 │   ├── topologies/        # single-node, proxy-single, primary-replica
 │   └── hardware/          # r8g.xlarge.tfvars, r8g.2xlarge.tfvars, ...
 │
-├── scripts2/
+├── scripts/
 │   ├── core/              # bench.py, reporter.py, config_loader.py
 │   ├── drivers/           # pgbench, hammerdb, fio
 │   ├── hardware/          # r8g.xlarge/, r8g.2xlarge/ (hardware.env)

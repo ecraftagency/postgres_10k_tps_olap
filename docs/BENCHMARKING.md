@@ -17,7 +17,7 @@ The benchmark framework supports multiple workload types with consistent diagnos
 ### Basic Usage
 
 ```bash
-sudo python3 scripts2/core/bench.py \
+sudo python3 scripts/core/bench.py \
   --topology single-node \
   --hardware r8g.2xlarge \
   --workload tpc-b
@@ -26,7 +26,7 @@ sudo python3 scripts2/core/bench.py \
 ### Full Options
 
 ```bash
-sudo python3 scripts2/core/bench.py \
+sudo python3 scripts/core/bench.py \
   --topology|-L single-node    # Infrastructure topology
   --hardware|-H r8g.2xlarge    # Hardware context
   --workload|-W tpc-b          # Workload type
@@ -162,9 +162,9 @@ To compare across configurations:
 
 ```bash
 # Run same benchmark on different hardware
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.xlarge -W tpc-b
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.4xlarge -W tpc-b
+sudo python3 scripts/core/bench.py -L single-node -H r8g.xlarge -W tpc-b
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
+sudo python3 scripts/core/bench.py -L single-node -H r8g.4xlarge -W tpc-b
 ```
 
 ### Scaling Tests
@@ -173,7 +173,7 @@ Test different client counts:
 
 ```bash
 for clients in 50 100 200 400; do
-  sudo python3 scripts2/core/bench.py \
+  sudo python3 scripts/core/bench.py \
     -L single-node -H r8g.2xlarge -W tpc-b \
     -c $clients -T 60
 done
@@ -183,7 +183,7 @@ done
 
 ```bash
 for duration in 60 300 600; do
-  sudo python3 scripts2/core/bench.py \
+  sudo python3 scripts/core/bench.py \
     -L single-node -H r8g.2xlarge -W tpc-b \
     -T $duration -c 100
 done
@@ -225,7 +225,7 @@ done
 ### Check 1: Config Verification
 
 ```bash
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b
 # Look for FAIL in verification output
 ```
 

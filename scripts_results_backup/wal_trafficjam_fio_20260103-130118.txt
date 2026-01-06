@@ -1,0 +1,50 @@
+wal_group_commit: (g=0): rw=write, bs=(R) 32.0KiB-32.0KiB, (W) 32.0KiB-32.0KiB, (T) 32.0KiB-32.0KiB, ioengine=libaio, iodepth=32
+...
+fio-3.36
+Starting 4 processes
+wal_group_commit: Laying out IO file (1 file / 5120MiB)
+
+wal_group_commit: (groupid=0, jobs=4): err= 0: pid=25613: Sat Jan  3 13:02:20 2026
+  write: IOPS=16.2k, BW=505MiB/s (530MB/s)(29.6GiB/60010msec); 0 zone resets
+    slat (usec): min=3, max=31958, avg=21.07, stdev=182.89
+    clat (usec): min=485, max=102835, avg=7783.13, stdev=4106.58
+     lat (usec): min=490, max=102847, avg=7804.20, stdev=4113.04
+    clat percentiles (usec):
+     |  1.00th=[ 1074],  5.00th=[ 2442], 10.00th=[ 3392], 20.00th=[ 4948],
+     | 30.00th=[ 6063], 40.00th=[ 6980], 50.00th=[ 7635], 60.00th=[ 8094],
+     | 70.00th=[ 8717], 80.00th=[ 9765], 90.00th=[11600], 95.00th=[14091],
+     | 99.00th=[22152], 99.50th=[27132], 99.90th=[41681], 99.95th=[49546],
+     | 99.99th=[73925]
+   bw (  KiB/s): min=272192, max=747712, per=100.00%, avg=517440.54, stdev=17612.39, samples=476
+   iops        : min= 8506, max=23366, avg=16170.02, stdev=550.39, samples=476
+  lat (usec)   : 500=0.01%, 750=0.01%, 1000=0.40%
+  lat (msec)   : 2=3.12%, 4=9.73%, 10=69.20%, 20=16.09%, 50=1.41%
+  lat (msec)   : 100=0.04%, 250=0.01%
+  fsync/fdatasync/sync_file_range:
+    sync (usec): min=693, max=118392, avg=7898.26, stdev=4102.85
+    sync percentiles (usec):
+     |  1.00th=[ 1123],  5.00th=[ 2704], 10.00th=[ 3589], 20.00th=[ 5080],
+     | 30.00th=[ 6128], 40.00th=[ 7046], 50.00th=[ 7701], 60.00th=[ 8160],
+     | 70.00th=[ 8848], 80.00th=[ 9765], 90.00th=[11731], 95.00th=[14222],
+     | 99.00th=[22414], 99.50th=[27395], 99.90th=[41681], 99.95th=[49546],
+     | 99.99th=[74974]
+  cpu          : usr=0.60%, sys=3.26%, ctx=494306, majf=0, minf=53
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.1%, 32=200.0%, >=64=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.1%, 64=0.0%, >=64=0.0%
+     issued rwts: total=0,969823,0,0 short=969699,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=32
+
+Run status group 0 (all jobs):
+  WRITE: bw=505MiB/s (530MB/s), 505MiB/s-505MiB/s (530MB/s-530MB/s), io=29.6GiB (31.8GB), run=60010-60010msec
+
+Disk stats (read/write):
+    md1: ios=0/995574, sectors=0/62375144, merge=0/0, ticks=0/4319924, in_queue=4319924, util=100.00%, aggrios=0/249380, aggsectors=0/15624555, aggrmerge=0/0, aggrticks=0/1019414, aggrin_queue=1019414, aggrutil=87.40%
+  nvme6n1: ios=0/249375, sectors=0/15624153, merge=0/0, ticks=0/1054920, in_queue=1054920, util=84.53%
+  nvme14n1: ios=0/249395, sectors=0/15625657, merge=0/0, ticks=0/836852, in_queue=836853, util=79.26%
+  nvme10n1: ios=0/249350, sectors=0/15623713, merge=0/0, ticks=0/991906, in_queue=991906, util=83.67%
+  nvme13n1: ios=0/249350, sectors=0/15623713, merge=0/0, ticks=0/1000048, in_queue=1000048, util=83.38%
+  nvme16n1: ios=0/249395, sectors=0/15625657, merge=0/0, ticks=0/983733, in_queue=983733, util=81.08%
+  nvme1n1: ios=0/249403, sectors=0/15624697, merge=0/0, ticks=0/1115698, in_queue=1115698, util=87.12%
+  nvme4n1: ios=0/249403, sectors=0/15624697, merge=0/0, ticks=0/1114320, in_queue=1114321, util=87.40%
+  nvme7n1: ios=0/249375, sectors=0/15624153, merge=0/0, ticks=0/1057835, in_queue=1057834, util=84.61%

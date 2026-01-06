@@ -33,7 +33,7 @@ export IP=$(terraform output -raw postgres_public_ip)
 ```bash
 # From project root
 rsync -avz -e "ssh -i ~/.ssh/your-key.pem" \
-  scripts2/ ubuntu@$IP:~/scripts2/
+  scripts/ ubuntu@$IP:~/scripts/
 ```
 
 ## Step 3: Server Setup
@@ -44,22 +44,22 @@ SSH into the server and run setup scripts:
 ssh -i ~/.ssh/your-key.pem ubuntu@$IP
 
 # Install dependencies
-sudo ./scripts2/setup/00-deps.sh
+sudo ./scripts/setup/00-deps.sh
 
 # Configure OS tuning (sysctl, limits, hugepages)
-sudo ./scripts2/setup/01-os-tuning.sh
+sudo ./scripts/setup/01-os-tuning.sh
 
 # Setup RAID10 arrays (DATA + WAL)
-sudo ./scripts2/setup/02-raid-setup.sh
+sudo ./scripts/setup/02-raid-setup.sh
 
 # Configure disk tuning (read_ahead, scheduler)
-sudo ./scripts2/setup/03-disk-tuning.sh
+sudo ./scripts/setup/03-disk-tuning.sh
 
 # Install PostgreSQL 16
-sudo ./scripts2/postgres/install.sh
+sudo ./scripts/postgres/install.sh
 
 # Configure PostgreSQL for TPC-B workload
-sudo ./scripts2/postgres/configure.sh --hardware r8g.2xlarge --workload tpc-b
+sudo ./scripts/postgres/configure.sh --hardware r8g.2xlarge --workload tpc-b
 
 # Initialize pgbench database (scale factor from config)
 sudo -u postgres pgbench -i -s 1000 postgres
@@ -69,7 +69,7 @@ sudo -u postgres pgbench -i -s 1000 postgres
 
 ```bash
 # Run TPC-B benchmark (60 seconds, 100 clients)
-sudo python3 scripts2/core/bench.py \
+sudo python3 scripts/core/bench.py \
   --topology single-node \
   --hardware r8g.2xlarge \
   --workload tpc-b \
@@ -110,7 +110,7 @@ Report saved: results/single-node/r8g.2xlarge--tpc-b/tpc-b_20260105-103045.md
 ```bash
 # From local machine
 rsync -avz -e "ssh -i ~/.ssh/your-key.pem" \
-  ubuntu@$IP:~/scripts2/results/ scripts2/results/
+  ubuntu@$IP:~/scripts/results/ scripts/results/
 ```
 
 ## Step 6: Cleanup
@@ -149,23 +149,23 @@ terraform apply -var-file=../../hardware/r8g.2xlarge.tfvars
 
 ```bash
 # Longer duration
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
   --duration 300 --clients 200
 
 # Skip warmup
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
   --no-warmup
 
 # Skip AI analysis
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
   --skip-ai
 
 # Skip config verification
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
   --skip-verify
 
 # Diagnostics only (no benchmark)
-sudo python3 scripts2/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
+sudo python3 scripts/core/bench.py -L single-node -H r8g.2xlarge -W tpc-b \
   --diagnostics-only
 ```
 
@@ -195,7 +195,7 @@ cat /proc/meminfo | grep Huge
 
 ### Low TPS results
 
-1. Verify config: `sudo python3 scripts2/core/bench.py ... --skip-verify` shows warnings
+1. Verify config: `sudo python3 scripts/core/bench.py ... --skip-verify` shows warnings
 2. Check disk setup: `lsblk` should show md0, md1 RAID arrays
 3. Check PostgreSQL logs: `journalctl -u postgresql@16-main`
 

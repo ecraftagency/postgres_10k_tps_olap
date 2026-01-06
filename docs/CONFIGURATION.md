@@ -270,13 +270,13 @@ PG_MAX_PARALLEL_WORKERS=8
 
 ```bash
 # 1. Create directory
-mkdir -p scripts2/hardware/r8g.8xlarge
+mkdir -p scripts/hardware/r8g.8xlarge
 
 # 2. Copy template
-cp scripts2/hardware/r8g.2xlarge/hardware.env scripts2/hardware/r8g.8xlarge/
+cp scripts/hardware/r8g.2xlarge/hardware.env scripts/hardware/r8g.8xlarge/
 
 # 3. Edit values
-vim scripts2/hardware/r8g.8xlarge/hardware.env
+vim scripts/hardware/r8g.8xlarge/hardware.env
 
 # 4. Create terraform vars
 vim terraform/hardware/r8g.8xlarge.tfvars
@@ -286,11 +286,11 @@ vim terraform/hardware/r8g.8xlarge.tfvars
 
 ```bash
 # 1. Create directory
-mkdir -p scripts2/workloads/custom
+mkdir -p scripts/workloads/custom
 
 # 2. Copy template
-cp scripts2/workloads/tpc-b/tuning.env scripts2/workloads/custom/
+cp scripts/workloads/tpc-b/tuning.env scripts/workloads/custom/
 
 # 3. Edit values
-vim scripts2/workloads/custom/tuning.env
+vim scripts/workloads/custom/tuning.env
 ```
