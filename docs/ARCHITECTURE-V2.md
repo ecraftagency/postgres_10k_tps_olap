@@ -63,31 +63,38 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Dimension 2: Scenarios (18 fixed)
+### Dimension 2: Scenarios (18 fixed) - 100% IDENTICAL to v1
 
-| ID | Name | Driver | Requires | Description |
-|----|------|--------|----------|-------------|
-| **Disk I/O (1-10)** ||||
-| 1 | data-stress | fio | data_volume | Random read/write stress |
-| 2 | data-throughput | fio | data_volume | Sequential throughput |
-| 3 | data-latency | fio | data_volume | 4K random latency |
-| 4 | data-mixed | fio | data_volume | 70/30 read/write mix |
-| 5 | wal-sequential | fio | wal_volume | Sequential write (WAL sim) |
-| 6 | wal-sync | fio | wal_volume | fsync heavy workload |
-| 7 | wal-burst | fio | wal_volume | Burst write pattern |
-| 8 | combined-oltp | fio | data+wal | OLTP I/O pattern |
-| 9 | combined-olap | fio | data+wal | OLAP I/O pattern |
-| 10 | combined-stress | fio | data+wal | Max stress both volumes |
-| **pgbench (11-14)** ||||
-| 11 | tpc-b-quick | pgbench | postgres | 60s, 100 clients |
-| 12 | tpc-b-sustained | pgbench | postgres | 300s, 100 clients |
-| 13 | tpc-b-high-conn | pgbench | postgres | 60s, 500 clients |
-| 14 | tpc-b-select | pgbench | postgres | Read-only TPC-B |
-| **sysbench (15-18)** ||||
-| 15 | oltp-read | sysbench | postgres | Point select |
-| 16 | oltp-write | sysbench | postgres | Update/insert heavy |
-| 17 | oltp-rw | sysbench | postgres | Read-write mixed |
-| 18 | oltp-point | sysbench | postgres | Point select only |
+**Source:** `archive/scripts/scenarios.json` (MUST NOT CHANGE)
+
+| ID | id (internal) | name | desc | target |
+|----|---------------|------|------|--------|
+| **FIO Disk I/O (1-10)** |||||
+| 1 | `wal_heartbeat` | The Heartbeat | Commit Latency - Single backend sync write (QD1+fdatasync) | wal |
+| 2 | `data_stress` | Stress Test | Mixed IOPS - Random R/W 70:30 at saturation (QD64x4) | data |
+| 3 | `data_latency` | Latency | Single Thread Random Read - True EBS latency (QD1) | data |
+| 4 | `data_throughput` | Throughput | Sequential Read - Max bandwidth (1MB blocks, QD16) | data |
+| 5 | `wal_firehose` | The Firehose | Sequential Throughput - Max write bandwidth (1MB, no fsync) | wal |
+| 6 | `wal_trafficjam` | The Traffic Jam | Group Commit Stress - Multi-thread sync write (QD32x4+fdatasync) | wal |
+| 7 | `data_seq_write` | Sequential Write | Checkpoint-style - Large sequential writes (1MB blocks, QD16) | data |
+| 8 | `data_rand_write` | Random Write | Pure Write IOPS - Random writes only (8K blocks, QD64x4) | data |
+| 9 | `data_mixed_sync` | Mixed Sync | DB-Realistic - Random R/W 70:30 with fdatasync (QD32x4) | data |
+| 10 | `wal_replay` | Recovery Replay | Sequential Read - Simulates Replica Catch-up or Crash Recovery | wal |
+| **pgbench (11-14)** |||||
+| 11 | `postgres_tpcb` | TPC-B Write Intensive | Standard OLTP Benchmark - pgbench {clients} clients | postgres |
+| 12 | `postgres_pure_read` | Pure Read | SELECT-only - Tests RAM throughput (pgbench -S) | postgres |
+| 13 | `postgres_connection_storm` | Connection Storm | Connect per transaction - Tests auth overhead (pgbench -C) | postgres |
+| 14 | `postgres_high_concurrency` | High Concurrency | High concurrency stress test - {clients} clients | postgres |
+| **sysbench (15-18)** |||||
+| 15 | `sysbench_oltp_read` | OLTP Read Only | Sysbench oltp_read_only - Pure SELECT workload | postgres |
+| 16 | `sysbench_oltp_rw` | OLTP Read/Write | Sysbench oltp_read_write - Mixed transactions | postgres |
+| 17 | `sysbench_oltp_write` | OLTP Write Only | Sysbench oltp_write_only - INSERT/UPDATE/DELETE | postgres |
+| 18 | `sysbench_oltp_point` | OLTP Point Select | Sysbench oltp_point_select - Simple PK lookups | postgres |
+
+**CRITICAL:** `scenarios.json` sẽ copy nguyên xi từ `archive/scripts/scenarios.json`
+- Chỉ thay đổi: `disks.data.volumes`, `disks.wal.volumes` (md0, md1 thay vì list nvme)
+- Commands begin/parallel/end: KHÔNG THAY ĐỔI
+- Output format: KHÔNG THAY ĐỔI
 
 ### Compatibility Matrix
 
@@ -301,12 +308,12 @@ def calculate_config():
 
 ### Phase 4: Scripts (Benchmark)
 
-- [ ] **S4.1** Create `scenarios.json` (all 18 scenarios)
-- [ ] **S4.2** Create `bench.py` (main entry point)
-- [ ] **S4.3** Create `drivers/fio.py` (scenarios 1-10)
-- [ ] **S4.4** Create `drivers/pgbench.py` (scenarios 11-14)
-- [ ] **S4.5** Create `drivers/sysbench.py` (scenarios 15-18)
-- [ ] **S4.6** Create `tools/report.py` (markdown generation)
+- [ ] **S4.1** Copy `scenarios.json` from `archive/scripts/scenarios.json` (100% identical, only change disk config)
+- [ ] **S4.2** Create `bench.py` (main entry point - simplified from v1)
+- [ ] **S4.3** Verify scenarios 1-10 (fio) output matches v1 exactly
+- [ ] **S4.4** Verify scenarios 11-14 (pgbench) output matches v1 exactly
+- [ ] **S4.5** Verify scenarios 15-18 (sysbench) output matches v1 exactly
+- [ ] **S4.6** Create `tools/report.py` (markdown generation - same format as v1)
 
 ### Phase 5: Documentation
 
