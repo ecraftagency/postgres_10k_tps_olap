@@ -239,7 +239,10 @@ ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/tools/verify-config.sh"
 │   │   ├── 02-raid-setup.sh      # RAID0 assembly
 │   │   ├── 03-disk-tuning.sh     # scheduler, read_ahead
 │   │   ├── 04-postgres.sh        # Install PG 16
-│   │   └── 05-proxy.sh           # Install PgCat (proxy only)
+│   │   ├── 05-proxy.sh           # Install PgCat (proxy only)
+│   │   ├── 06-primary-config.sh  # Replication: primary setup
+│   │   ├── 07-replica-setup.sh   # Replication: replica setup
+│   │   └── 08-proxy-routing.sh   # PgCat read/write split
 │   │
 │   ├── config/
 │   │   ├── baseline.env          # Base config template
@@ -252,6 +255,7 @@ ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/tools/verify-config.sh"
 │   ├── tools/
 │   │   ├── verify-config.sh
 │   │   ├── collect-facts.sh      # Hardware detection
+│   │   ├── check-replication.sh  # Verify replication lag, sync status
 │   │   └── report.py             # Generate markdown report
 │   │
 │   └── results/
@@ -415,27 +419,34 @@ def calculate_config():
 - [ ] **S3.3** Create `tools/collect-facts.sh` (hardware detection)
 - [ ] **S3.4** Create `tools/verify-config.sh` (validate settings)
 
-### Phase 4: Scripts (Benchmark)
+### Phase 4: Scripts (Replication - for primary-replica topologies)
 
-- [ ] **S4.1** Copy `scenarios.json` from `archive/scripts/scenarios.json` (100% identical, only change disk config)
-- [ ] **S4.2** Create `bench.py` (main entry point - simplified from v1)
-- [ ] **S4.3** Verify scenarios 1-10 (fio) output matches v1 exactly
-- [ ] **S4.4** Verify scenarios 11-14 (pgbench) output matches v1 exactly
-- [ ] **S4.5** Verify scenarios 15-18 (sysbench) output matches v1 exactly
-- [ ] **S4.6** Create `tools/report.py` (markdown generation - same format as v1)
+- [ ] **S4.1** Create `setup/06-primary-config.sh` (wal_level=replica, max_wal_senders, replication slot)
+- [ ] **S4.2** Create `setup/07-replica-setup.sh` (pg_basebackup, primary_conninfo, standby.signal)
+- [ ] **S4.3** Create `setup/08-proxy-routing.sh` (PgCat read/write split config)
+- [ ] **S4.4** Create `tools/check-replication.sh` (verify replication lag, sync status)
 
-### Phase 5: Documentation
+### Phase 5: Scripts (Benchmark)
 
-- [ ] **D5.1** Update `README.md`
-- [ ] **D5.2** Update `docs/QUICKSTART.md`
-- [ ] **D5.3** Update `docs/CONFIGURATION.md`
+- [ ] **S5.1** Copy `scenarios.json` from `archive/scripts/scenarios.json` (100% identical, only change disk config)
+- [ ] **S5.2** Create `bench.py` (main entry point - simplified from v1)
+- [ ] **S5.3** Verify scenarios 1-10 (fio) output matches v1 exactly
+- [ ] **S5.4** Verify scenarios 11-14 (pgbench) output matches v1 exactly
+- [ ] **S5.5** Verify scenarios 15-18 (sysbench) output matches v1 exactly
+- [ ] **S5.6** Create `tools/report.py` (markdown generation - same format as v1)
 
-### Phase 6: Testing
+### Phase 6: Documentation
 
-- [ ] **X6.1** Test single-node topology deploy + scenario 1-14
-- [ ] **X6.2** Test proxy-single topology deploy + all scenarios
-- [ ] **X6.3** Test primary-replica topology deploy
-- [ ] **X6.4** Test primary-replica-proxy topology deploy
+- [ ] **D6.1** Update `README.md`
+- [ ] **D6.2** Update `docs/QUICKSTART.md`
+- [ ] **D6.3** Update `docs/CONFIGURATION.md`
+
+### Phase 7: Testing
+
+- [ ] **X7.1** Test single-node topology: deploy + scenarios 1-18
+- [ ] **X7.2** Test proxy-single topology: deploy + scenarios 11-18 via proxy
+- [ ] **X7.3** Test primary-replica topology: deploy + replication verify + scenarios
+- [ ] **X7.4** Test primary-replica-proxy topology: deploy + read/write routing
 
 ---
 
