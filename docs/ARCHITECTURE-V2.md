@@ -106,6 +106,115 @@
 
 ---
 
+## Terraform ↔ Bootstrap Integration
+
+### AWS Conventions (Fixed)
+
+```bash
+AWS_PROFILE=boxloop-admin
+SSH_KEY=~/.ssh/id_rsa
+```
+
+### Terraform Outputs (Must be complete)
+
+```hcl
+output "topology" { value = "single-node" }
+output "aws_profile" { value = var.aws_profile }
+output "ssh_key_path" { value = "~/.ssh/id_rsa" }
+
+output "db_node" {
+  value = {
+    instance_id   = aws_instance.db.id
+    public_ip     = aws_instance.db.public_ip
+    private_ip    = aws_instance.db.private_ip
+    instance_type = var.instance_type
+    vcpu          = 4
+    ram_gb        = 32
+  }
+}
+
+output "storage" {
+  value = {
+    data_volumes  = aws_ebs_volume.data[*].id
+    wal_volumes   = aws_ebs_volume.wal[*].id
+    from_snapshot = var.data_snapshot_id != ""
+    data_snapshot = var.data_snapshot_id
+    wal_snapshot  = var.wal_snapshot_id
+  }
+}
+
+output "proxy_node" { ... }   # null if not applicable
+output "replica_node" { ... } # null if not applicable
+```
+
+### Bootstrap Decision Tree
+
+```
+terraform apply
+      │
+      ▼
+terraform output -json > infra.json
+      │
+      ▼
+bootstrap.sh infra.json
+      │
+      ├─── from_snapshot=false ──────┬─── from_snapshot=true
+      │    (FRESH INSTALL)           │    (RECONFIG ONLY)
+      │                              │
+      ▼                              ▼
+┌────────────────┐          ┌────────────────┐
+│ 00-deps.sh     │          │ Skip deps      │
+│ 01-os-tuning   │          │ 01-os-tuning   │
+│ 02-raid-setup  │          │ Skip RAID      │
+│ 03-disk-tuning │          │ 03-disk-tuning │
+│ 04-postgres    │          │ Reconfig PG    │
+│ 05-proxy       │          │ Reconfig proxy │
+└────────────────┘          └────────────────┘
+      │                              │
+      └──────────────┬───────────────┘
+                     ▼
+        Dynamic Config (vcpu, ram_gb)
+                     │
+                     ▼
+              verify-config.sh
+                     │
+                     ▼
+        Ready: baseline → rounds → ceiling
+```
+
+### bootstrap.sh (simplified)
+
+```bash
+#!/bin/bash
+INFRA_JSON="$1"
+
+# Parse
+export AWS_PROFILE=$(jq -r '.aws_profile' "$INFRA_JSON")
+SSH_KEY=$(jq -r '.ssh_key_path' "$INFRA_JSON")
+DB_IP=$(jq -r '.db_node.public_ip' "$INFRA_JSON")
+FROM_SNAPSHOT=$(jq -r '.storage.from_snapshot' "$INFRA_JSON")
+
+# Sync scripts
+rsync -avz -e "ssh -i $SSH_KEY" scripts/ ubuntu@$DB_IP:~/scripts/
+
+# Fresh vs Reconfig
+if [[ "$FROM_SNAPSHOT" == "false" ]]; then
+    ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/setup/00-deps.sh"
+    ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/setup/02-raid-setup.sh"
+    ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/setup/04-postgres.sh"
+fi
+
+# Always run (sysctl lost on reboot)
+ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/setup/01-os-tuning.sh"
+ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/setup/03-disk-tuning.sh"
+
+# Dynamic config + verify
+ssh -i $SSH_KEY ubuntu@$DB_IP "sudo python3 ./scripts/config/calculate.py --apply"
+ssh -i $SSH_KEY ubuntu@$DB_IP "sudo ./scripts/tools/verify-config.sh"
+```
+
+---
+
 ## Directory Structure
 
 ```
