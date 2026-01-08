@@ -65,97 +65,260 @@ def load_all_configs() -> Dict[str, Dict[str, str]]:
     return configs
 
 
-# Config category mapping for RESULT-STRUCTURE.md format
-CONFIG_CATEGORIES = {
+# =============================================================================
+# CONFIG VERIFICATION - Compare local intent vs actual remote values
+# =============================================================================
+
+def ssh_cmd(host: str, cmd: str, timeout: int = 10) -> str:
+    """Run SSH command to remote host and return output"""
+    try:
+        result = subprocess.run(
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+             "-o", "LogLevel=ERROR", f"ubuntu@{host}", cmd],
+            capture_output=True, text=True, timeout=timeout
+        )
+        return result.stdout.strip()
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
+def collect_actual_config(db_host: str, pg_host: str, pg_port: str) -> Dict[str, str]:
+    """Collect actual configuration values from remote DB host"""
+    actual = {}
+
+    # OS - Memory (via SSH to DB host)
+    os_mem_cmd = "cat /proc/sys/vm/swappiness /proc/sys/vm/dirty_ratio /proc/sys/vm/dirty_background_ratio /proc/sys/vm/dirty_expire_centisecs /proc/sys/vm/dirty_writeback_centisecs /proc/sys/vm/overcommit_memory /proc/sys/vm/overcommit_ratio /proc/sys/vm/min_free_kbytes /proc/sys/vm/zone_reclaim_mode /proc/sys/vm/nr_hugepages 2>/dev/null | tr '\\n' ' '"
+    os_mem = ssh_cmd(db_host, os_mem_cmd).split()
+    if len(os_mem) >= 10:
+        actual['vm.swappiness'] = os_mem[0]
+        actual['vm.dirty_ratio'] = os_mem[1]
+        actual['vm.dirty_background_ratio'] = os_mem[2]
+        actual['vm.dirty_expire_centisecs'] = os_mem[3]
+        actual['vm.dirty_writeback_centisecs'] = os_mem[4]
+        actual['vm.overcommit_memory'] = os_mem[5]
+        actual['vm.overcommit_ratio'] = os_mem[6]
+        actual['vm.min_free_kbytes'] = os_mem[7]
+        actual['vm.zone_reclaim_mode'] = os_mem[8]
+        actual['vm.nr_hugepages'] = os_mem[9]
+
+    # OS - Kernel
+    kernel_cmd = "cat /proc/sys/kernel/sched_autogroup_enabled /proc/sys/kernel/numa_balancing 2>/dev/null | tr '\\n' ' '"
+    kernel = ssh_cmd(db_host, kernel_cmd).split()
+    if len(kernel) >= 2:
+        actual['kernel.sched_autogroup_enabled'] = kernel[0]
+        actual['kernel.numa_balancing'] = kernel[1]
+
+    # OS - TCP
+    tcp_cmd = "cat /proc/sys/net/core/somaxconn /proc/sys/net/core/netdev_max_backlog /proc/sys/net/ipv4/tcp_max_syn_backlog /proc/sys/net/ipv4/tcp_tw_reuse /proc/sys/net/ipv4/tcp_fin_timeout /proc/sys/net/ipv4/tcp_keepalive_time /proc/sys/net/ipv4/tcp_keepalive_intvl /proc/sys/net/ipv4/tcp_keepalive_probes /proc/sys/net/core/default_qdisc /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null | tr '\\n' ' '"
+    tcp = ssh_cmd(db_host, tcp_cmd).split()
+    if len(tcp) >= 10:
+        actual['net.core.somaxconn'] = tcp[0]
+        actual['net.core.netdev_max_backlog'] = tcp[1]
+        actual['net.ipv4.tcp_max_syn_backlog'] = tcp[2]
+        actual['net.ipv4.tcp_tw_reuse'] = tcp[3]
+        actual['net.ipv4.tcp_fin_timeout'] = tcp[4]
+        actual['net.ipv4.tcp_keepalive_time'] = tcp[5]
+        actual['net.ipv4.tcp_keepalive_intvl'] = tcp[6]
+        actual['net.ipv4.tcp_keepalive_probes'] = tcp[7]
+        actual['net.core.default_qdisc'] = tcp[8]
+        actual['net.ipv4.tcp_congestion_control'] = tcp[9]
+
+    # Disk - RAID read_ahead
+    disk_cmd = "cat /sys/block/md0/queue/read_ahead_kb /sys/block/md1/queue/read_ahead_kb 2>/dev/null | tr '\\n' ' '"
+    disk = ssh_cmd(db_host, disk_cmd).split()
+    if len(disk) >= 2:
+        actual['DATA read_ahead_kb'] = disk[0]
+        actual['WAL read_ahead_kb'] = disk[1]
+
+    # THP
+    thp_cmd = "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null | grep -o '\\[.*\\]' | tr -d '[]'"
+    actual['transparent_hugepage'] = ssh_cmd(db_host, thp_cmd)
+
+    # PostgreSQL settings via psql
+    pg_settings = [
+        'shared_buffers', 'effective_cache_size', 'work_mem', 'maintenance_work_mem',
+        'huge_pages', 'max_connections', 'wal_level', 'wal_compression', 'wal_sync_method',
+        'wal_buffers', 'wal_writer_delay', 'synchronous_commit', 'max_wal_size', 'min_wal_size',
+        'checkpoint_timeout', 'checkpoint_completion_target', 'bgwriter_delay',
+        'bgwriter_lru_maxpages', 'bgwriter_lru_multiplier', 'effective_io_concurrency',
+        'random_page_cost', 'seq_page_cost', 'commit_delay', 'commit_siblings',
+        'autovacuum', 'track_counts', 'autovacuum_vacuum_scale_factor',
+        'autovacuum_analyze_scale_factor', 'autovacuum_vacuum_cost_limit',
+        'autovacuum_vacuum_cost_delay', 'jit'
+    ]
+
+    pg_query = f"SELECT name || '=' || setting FROM pg_settings WHERE name IN ({','.join([repr(s) for s in pg_settings])}) ORDER BY name;"
+    pg_cmd = f"PGPASSWORD=postgres psql -h {pg_host} -p {pg_port} -U postgres -t -A -c \"{pg_query}\" 2>/dev/null"
+    pg_output = subprocess.run(pg_cmd, shell=True, capture_output=True, text=True, timeout=10).stdout
+
+    for line in pg_output.strip().split('\n'):
+        if '=' in line:
+            key, val = line.split('=', 1)
+            actual[f'pg_{key}'] = val
+
+    return actual
+
+
+def normalize_pg_value(name: str, raw_value: str, local_value: str) -> str:
+    """Normalize PostgreSQL values for comparison (convert units)"""
+    if not raw_value or raw_value == 'N/A':
+        return raw_value
+
+    try:
+        # Memory settings (8kB pages -> human readable)
+        if name in ['shared_buffers', 'effective_cache_size']:
+            pages = int(raw_value)
+            gb = pages * 8 // 1024 // 1024
+            return f"{gb}GB"
+        elif name in ['work_mem', 'maintenance_work_mem', 'wal_buffers']:
+            kb = int(raw_value)
+            mb = kb // 1024
+            return f"{mb}MB"
+        elif name in ['max_wal_size', 'min_wal_size']:
+            # Already in MB
+            return f"{raw_value}MB"
+        elif name in ['checkpoint_timeout']:
+            # Seconds -> minutes
+            secs = int(raw_value)
+            mins = secs // 60
+            return f"{mins}min"
+        elif name in ['wal_writer_delay', 'bgwriter_delay', 'autovacuum_vacuum_cost_delay']:
+            return f"{raw_value}ms"
+    except:
+        pass
+
+    return raw_value
+
+
+def check_config_match(local: str, actual: str) -> str:
+    """Check if local and actual values match, return status emoji"""
+    if not local or not actual or actual == 'N/A':
+        return "⚠️"
+
+    # Normalize for comparison
+    l = str(local).lower().strip().replace("'", "").replace('"', '')
+    a = str(actual).lower().strip().replace("'", "").replace('"', '')
+
+    if l == a:
+        return "✓"
+    else:
+        return "✗"
+
+
+# Config verification mapping: (display_name, env_key, source_file, actual_key, pg_setting_name)
+CONFIG_VERIFY = {
     "OS - Memory": [
-        ("vm.swappiness", "VM_SWAPPINESS", "os.env"),
-        ("vm.dirty_background_ratio", "VM_DIRTY_BACKGROUND_RATIO", "os.env"),
-        ("vm.dirty_ratio", "VM_DIRTY_RATIO", "os.env"),
-        ("vm.dirty_expire_centisecs", "VM_DIRTY_EXPIRE_CENTISECS", "os.env"),
-        ("vm.dirty_writeback_centisecs", "VM_DIRTY_WRITEBACK_CENTISECS", "os.env"),
-        ("vm.overcommit_memory", "VM_OVERCOMMIT_MEMORY", "os.env"),
-        ("vm.overcommit_ratio", "VM_OVERCOMMIT_RATIO", "os.env"),
-        ("vm.min_free_kbytes", "VM_MIN_FREE_KBYTES", "os.env"),
-        ("vm.zone_reclaim_mode", "VM_ZONE_RECLAIM_MODE", "os.env"),
-        ("vm.nr_hugepages", "VM_NR_HUGEPAGES", "os.env"),
-    ],
-    "OS - File Descriptors": [
-        ("fs.file-max", "FS_FILE_MAX", "os.env"),
-        ("fs.aio-max-nr", "FS_AIO_MAX_NR", "os.env"),
+        ("vm.swappiness", "VM_SWAPPINESS", "os.env", "vm.swappiness", None),
+        ("vm.dirty_ratio", "VM_DIRTY_RATIO", "os.env", "vm.dirty_ratio", None),
+        ("vm.dirty_background_ratio", "VM_DIRTY_BACKGROUND_RATIO", "os.env", "vm.dirty_background_ratio", None),
+        ("vm.dirty_expire_centisecs", "VM_DIRTY_EXPIRE_CENTISECS", "os.env", "vm.dirty_expire_centisecs", None),
+        ("vm.dirty_writeback_centisecs", "VM_DIRTY_WRITEBACK_CENTISECS", "os.env", "vm.dirty_writeback_centisecs", None),
+        ("vm.overcommit_memory", "VM_OVERCOMMIT_MEMORY", "os.env", "vm.overcommit_memory", None),
+        ("vm.overcommit_ratio", "VM_OVERCOMMIT_RATIO", "os.env", "vm.overcommit_ratio", None),
+        ("vm.min_free_kbytes", "VM_MIN_FREE_KBYTES", "os.env", "vm.min_free_kbytes", None),
+        ("vm.zone_reclaim_mode", "VM_ZONE_RECLAIM_MODE", "os.env", "vm.zone_reclaim_mode", None),
+        ("vm.nr_hugepages", "VM_NR_HUGEPAGES", "os.env", "vm.nr_hugepages", None),
     ],
     "OS - Kernel": [
-        ("kernel.sched_autogroup_enabled", "KERNEL_SCHED_AUTOGROUP_ENABLED", "os.env"),
-        ("kernel.numa_balancing", "KERNEL_NUMA_BALANCING", "os.env"),
+        ("kernel.sched_autogroup_enabled", "KERNEL_SCHED_AUTOGROUP_ENABLED", "os.env", "kernel.sched_autogroup_enabled", None),
+        ("kernel.numa_balancing", "KERNEL_NUMA_BALANCING", "os.env", "kernel.numa_balancing", None),
     ],
-    "OS - TCP": [
-        ("net.core.somaxconn", "NET_CORE_SOMAXCONN", "os.env"),
-        ("net.core.netdev_max_backlog", "NET_CORE_NETDEV_MAX_BACKLOG", "os.env"),
-        ("net.core.rmem_default", "NET_CORE_RMEM_DEFAULT", "os.env"),
-        ("net.core.rmem_max", "NET_CORE_RMEM_MAX", "os.env"),
-        ("net.core.wmem_default", "NET_CORE_WMEM_DEFAULT", "os.env"),
-        ("net.core.wmem_max", "NET_CORE_WMEM_MAX", "os.env"),
-        ("net.ipv4.tcp_max_syn_backlog", "NET_IPV4_TCP_MAX_SYN_BACKLOG", "os.env"),
-        ("net.ipv4.tcp_tw_reuse", "NET_IPV4_TCP_TW_REUSE", "os.env"),
-        ("net.ipv4.tcp_fin_timeout", "NET_IPV4_TCP_FIN_TIMEOUT", "os.env"),
+    "OS - TCP/Network": [
+        ("net.core.somaxconn", "NET_CORE_SOMAXCONN", "os.env", "net.core.somaxconn", None),
+        ("net.core.netdev_max_backlog", "NET_CORE_NETDEV_MAX_BACKLOG", "os.env", "net.core.netdev_max_backlog", None),
+        ("net.ipv4.tcp_max_syn_backlog", "NET_IPV4_TCP_MAX_SYN_BACKLOG", "os.env", "net.ipv4.tcp_max_syn_backlog", None),
+        ("net.ipv4.tcp_tw_reuse", "NET_IPV4_TCP_TW_REUSE", "os.env", "net.ipv4.tcp_tw_reuse", None),
+        ("net.ipv4.tcp_fin_timeout", "NET_IPV4_TCP_FIN_TIMEOUT", "os.env", "net.ipv4.tcp_fin_timeout", None),
+        ("net.ipv4.tcp_keepalive_time", "NET_IPV4_TCP_KEEPALIVE_TIME", "os.env", "net.ipv4.tcp_keepalive_time", None),
+        ("net.ipv4.tcp_keepalive_intvl", "NET_IPV4_TCP_KEEPALIVE_INTVL", "os.env", "net.ipv4.tcp_keepalive_intvl", None),
+        ("net.ipv4.tcp_keepalive_probes", "NET_IPV4_TCP_KEEPALIVE_PROBES", "os.env", "net.ipv4.tcp_keepalive_probes", None),
+        ("net.core.default_qdisc", "NET_CORE_DEFAULT_QDISC", "os.env", "net.core.default_qdisc", None),
+        ("net.ipv4.tcp_congestion_control", "NET_IPV4_TCP_CONGESTION_CONTROL", "os.env", "net.ipv4.tcp_congestion_control", None),
     ],
-    "Disk": [
-        ("DATA read_ahead_kb", "DATA_READ_AHEAD_KB", "base.env"),
-        ("WAL read_ahead_kb", "WAL_READ_AHEAD_KB", "base.env"),
-        ("DATA filesystem", "FS_TYPE", "base.env"),
-        ("WAL filesystem", "FS_TYPE", "base.env"),
-        ("DATA mount", "DATA_MOUNT", "base.env"),
-        ("WAL mount", "WAL_MOUNT", "base.env"),
-        ("transparent_hugepage", "THP_ENABLED", "os.env"),
+    "Disk / RAID": [
+        ("DATA read_ahead_kb", "DATA_READ_AHEAD_KB", "base.env", "DATA read_ahead_kb", None),
+        ("WAL read_ahead_kb", "WAL_READ_AHEAD_KB", "base.env", "WAL read_ahead_kb", None),
+        ("transparent_hugepage", "THP_ENABLED", "os.env", "transparent_hugepage", None),
     ],
     "PostgreSQL - Memory": [
-        ("shared_buffers", "PG_SHARED_BUFFERS", "primary.env"),
-        ("effective_cache_size", "PG_EFFECTIVE_CACHE_SIZE", "primary.env"),
-        ("work_mem", "PG_WORK_MEM", "primary.env"),
-        ("maintenance_work_mem", "PG_MAINTENANCE_WORK_MEM", "primary.env"),
-        ("huge_pages", "PG_HUGE_PAGES", "primary.env"),
-        ("max_connections", "PG_MAX_CONNECTIONS", "primary.env"),
+        ("shared_buffers", "PG_SHARED_BUFFERS", "primary.env", "pg_shared_buffers", "shared_buffers"),
+        ("effective_cache_size", "PG_EFFECTIVE_CACHE_SIZE", "primary.env", "pg_effective_cache_size", "effective_cache_size"),
+        ("work_mem", "PG_WORK_MEM", "primary.env", "pg_work_mem", "work_mem"),
+        ("maintenance_work_mem", "PG_MAINTENANCE_WORK_MEM", "primary.env", "pg_maintenance_work_mem", "maintenance_work_mem"),
+        ("huge_pages", "PG_HUGE_PAGES", "primary.env", "pg_huge_pages", None),
+        ("max_connections", "PG_MAX_CONNECTIONS", "primary.env", "pg_max_connections", None),
     ],
     "PostgreSQL - WAL": [
-        ("wal_level", "PG_WAL_LEVEL", "primary.env"),
-        ("wal_compression", "PG_WAL_COMPRESSION", "primary.env"),
-        ("wal_sync_method", "PG_WAL_SYNC_METHOD", "primary.env"),
-        ("wal_buffers", "PG_WAL_BUFFERS", "primary.env"),
-        ("wal_writer_delay", "PG_WAL_WRITER_DELAY", "primary.env"),
-        ("synchronous_commit", "PG_SYNCHRONOUS_COMMIT", "primary.env"),
-        ("max_wal_size", "PG_MAX_WAL_SIZE", "primary.env"),
-        ("min_wal_size", "PG_MIN_WAL_SIZE", "primary.env"),
+        ("wal_level", "PG_WAL_LEVEL", "primary.env", "pg_wal_level", None),
+        ("wal_compression", "PG_WAL_COMPRESSION", "primary.env", "pg_wal_compression", None),
+        ("wal_sync_method", "PG_WAL_SYNC_METHOD", "primary.env", "pg_wal_sync_method", None),
+        ("wal_buffers", "PG_WAL_BUFFERS", "primary.env", "pg_wal_buffers", "wal_buffers"),
+        ("wal_writer_delay", "PG_WAL_WRITER_DELAY", "primary.env", "pg_wal_writer_delay", "wal_writer_delay"),
+        ("synchronous_commit", "PG_SYNCHRONOUS_COMMIT", "primary.env", "pg_synchronous_commit", None),
+        ("max_wal_size", "PG_MAX_WAL_SIZE", "primary.env", "pg_max_wal_size", "max_wal_size"),
+        ("min_wal_size", "PG_MIN_WAL_SIZE", "primary.env", "pg_min_wal_size", "min_wal_size"),
     ],
-    "PostgreSQL - Checkpoint": [
-        ("checkpoint_timeout", "PG_CHECKPOINT_TIMEOUT", "primary.env"),
-        ("checkpoint_completion_target", "PG_CHECKPOINT_COMPLETION_TARGET", "primary.env"),
+    "PostgreSQL - Checkpoint & BGWriter": [
+        ("checkpoint_timeout", "PG_CHECKPOINT_TIMEOUT", "primary.env", "pg_checkpoint_timeout", "checkpoint_timeout"),
+        ("checkpoint_completion_target", "PG_CHECKPOINT_COMPLETION_TARGET", "primary.env", "pg_checkpoint_completion_target", None),
+        ("bgwriter_delay", "PG_BGWRITER_DELAY", "primary.env", "pg_bgwriter_delay", "bgwriter_delay"),
+        ("bgwriter_lru_maxpages", "PG_BGWRITER_LRU_MAXPAGES", "primary.env", "pg_bgwriter_lru_maxpages", None),
+        ("bgwriter_lru_multiplier", "PG_BGWRITER_LRU_MULTIPLIER", "primary.env", "pg_bgwriter_lru_multiplier", None),
+        ("commit_delay", "PG_COMMIT_DELAY", "primary.env", "pg_commit_delay", None),
+        ("commit_siblings", "PG_COMMIT_SIBLINGS", "primary.env", "pg_commit_siblings", None),
     ],
-    "PostgreSQL - Background Writer": [
-        ("bgwriter_delay", "PG_BGWRITER_DELAY", "primary.env"),
-        ("bgwriter_lru_maxpages", "PG_BGWRITER_LRU_MAXPAGES", "primary.env"),
-        ("bgwriter_lru_multiplier", "PG_BGWRITER_LRU_MULTIPLIER", "primary.env"),
+    "PostgreSQL - Autovacuum": [
+        ("autovacuum", "PG_AUTOVACUUM", "primary.env", "pg_autovacuum", None),
+        ("track_counts", "PG_TRACK_COUNTS", "primary.env", "pg_track_counts", None),
+        ("autovacuum_vacuum_scale_factor", "PG_AUTOVACUUM_VACUUM_SCALE_FACTOR", "primary.env", "pg_autovacuum_vacuum_scale_factor", None),
+        ("autovacuum_analyze_scale_factor", "PG_AUTOVACUUM_ANALYZE_SCALE_FACTOR", "primary.env", "pg_autovacuum_analyze_scale_factor", None),
+        ("autovacuum_vacuum_cost_limit", "PG_AUTOVACUUM_VACUUM_COST_LIMIT", "primary.env", "pg_autovacuum_vacuum_cost_limit", None),
+        ("autovacuum_vacuum_cost_delay", "PG_AUTOVACUUM_VACUUM_COST_DELAY", "primary.env", "pg_autovacuum_vacuum_cost_delay", "autovacuum_vacuum_cost_delay"),
     ],
-    "PostgreSQL - I/O": [
-        ("effective_io_concurrency", "PG_EFFECTIVE_IO_CONCURRENCY", "primary.env"),
-        ("random_page_cost", "PG_RANDOM_PAGE_COST", "primary.env"),
-        ("seq_page_cost", "PG_SEQ_PAGE_COST", "primary.env"),
+    "PostgreSQL - I/O & Query": [
+        ("effective_io_concurrency", "PG_EFFECTIVE_IO_CONCURRENCY", "primary.env", "pg_effective_io_concurrency", None),
+        ("random_page_cost", "PG_RANDOM_PAGE_COST", "primary.env", "pg_random_page_cost", None),
+        ("seq_page_cost", "PG_SEQ_PAGE_COST", "primary.env", "pg_seq_page_cost", None),
+        ("jit", "PG_JIT", "primary.env", "pg_jit", None),
     ],
 }
 
 
-def render_config_matrix(configs: Dict[str, Dict[str, str]]) -> str:
-    """Render full configuration matrix grouped by category"""
-    lines = ["## Configuration Matrix", ""]
+def render_config_verification(configs: Dict[str, Dict[str, str]], actual: Dict[str, str]) -> str:
+    """Render configuration verification matrix with Local vs Actual comparison"""
+    lines = ["## Configuration Verification", ""]
 
-    for category, params in CONFIG_CATEGORIES.items():
-        lines.append(f"### {category} ({len(params)} params)")
-        lines.append("| Parameter | Value | Source |")
-        lines.append("|-----------|-------|--------|")
+    total_match = 0
+    total_mismatch = 0
 
-        for display_name, env_key, source_file in params:
-            value = configs.get(source_file, {}).get(env_key, "N/A")
-            lines.append(f"| {display_name} | {value} | {source_file} |")
+    for category, params in CONFIG_VERIFY.items():
+        lines.append(f"### {category}")
+        lines.append("| Parameter | Local | Actual | Status |")
+        lines.append("|-----------|-------|--------|:------:|")
+
+        for display_name, env_key, source_file, actual_key, pg_name in params:
+            local_val = configs.get(source_file, {}).get(env_key, "N/A")
+            actual_val = actual.get(actual_key, "N/A")
+
+            # Normalize PG values for display
+            if pg_name:
+                actual_val = normalize_pg_value(pg_name, actual_val, local_val)
+
+            status = check_config_match(local_val, actual_val)
+            if status == "✓":
+                total_match += 1
+            elif status == "✗":
+                total_mismatch += 1
+
+            lines.append(f"| {display_name} | {local_val} | {actual_val} | {status} |")
 
         lines.append("")
+
+    # Summary
+    total = total_match + total_mismatch
+    if total > 0:
+        lines.insert(2, f"> **Verification Summary:** {total_match}/{total} matched, {total_mismatch} mismatched")
+        lines.insert(3, "")
 
     return "\n".join(lines)
 
@@ -681,15 +844,24 @@ def run_scenario(scenario_id: str, topology: str, variables_override: Dict = {})
     
     # Build variables
     host = variables_override.get("host", "localhost")
+    port = variables_override.get("port", "5432")
+
+    # Dynamic clients based on connection path (direct vs pgcat)
+    if str(port) == "6432" and "clients_pgcat" in scenario:
+        clients = scenario["clients_pgcat"]
+    else:
+        clients = scenario.get("clients", hw["clients"])
+
     variables = {
         "duration": scenario.get("duration", defaults.get("duration", 60)),
-        "clients": scenario.get("clients", hw["clients"]),
+        "clients": clients,
         "threads": scenario.get("threads", hw["threads"]),
         "scale": scenario.get("scale", hw["scale"]),
+        "warehouses": scenario.get("warehouses", 200),
         "vcpu": hw["vcpu"],
         "ram_gb": hw["ram_gb"],
         "host": host,
-        "port": variables_override.get("port", "5432"),
+        "port": port,
         "db_host": variables_override.get("db_host", host),  # For SSH to DB node
     }
     duration = variables["duration"]
@@ -1101,9 +1273,13 @@ def generate_report(
         "",
     ])
 
-    # Render full configuration matrix (configs already loaded above)
-    config_matrix = render_config_matrix(configs)
-    lines.append(config_matrix)
+    # Collect actual config from DB host and render verification matrix
+    # Always query DB directly (10.0.1.10:5432) even when benchmark runs via PgCat
+    print("  Collecting actual config from DB host for verification...")
+    db_host = variables.get('db_host', '10.0.1.10')
+    actual_config = collect_actual_config(db_host, pg_host='10.0.1.10', pg_port='5432')
+    config_verification = render_config_verification(configs, actual_config)
+    lines.append(config_verification)
 
     lines.extend([
         "---",

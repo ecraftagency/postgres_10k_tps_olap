@@ -1,81 +1,75 @@
 # =============================================================================
-# PgCat Configuration
+# PgCat Configuration - Low Latency OLTP Optimized
 # =============================================================================
 # PostgreSQL connection pooler - https://github.com/postgresml/pgcat
-# Default port: 6432
+# Target: Minimum latency overhead for OLTP workloads
+# Hardware: c8g.xlarge proxy (4 vCPU, 8GB RAM)
 # =============================================================================
 
 [general]
-# Bind address and port
 host = "0.0.0.0"
 port = 6432
 
-# Worker threads: 2x vCPU for concurrency (c8g.xlarge = 4 vCPU)
+# Worker threads: 2x vCPU for concurrency
 worker_threads = 8
 
-# Enable admin database for stats
+# Admin interface
 admin_username = "admin"
 admin_password = "admin"
 
-# Connection timeout (ms)
-connect_timeout = 5000
+# === LOW LATENCY TUNING ===
+# Fast connection establishment
+connect_timeout = 1000
 
-# Idle timeout before closing server connection (ms)
-idle_timeout = 30000
+# Keep connections alive longer (reduce reconnect overhead)
+idle_timeout = 600000
+server_lifetime = 86400000
 
-# TCP keepalive (seconds)
+# Aggressive TCP keepalive for fast failure detection
 tcp_keepalives_idle = 5
-tcp_keepalives_count = 5
+tcp_keepalives_count = 3
 tcp_keepalives_interval = 1
 
-# Shutdown timeout (ms)
+# Shutdown
 shutdown_timeout = 60000
 
-# Health check interval (ms)
-healthcheck_delay = 30000
+# Health checks - less frequent to reduce overhead
+healthcheck_delay = 60000
 healthcheck_timeout = 1000
 
-# Ban time for unhealthy servers (seconds)
-ban_time = 60
+# Quick recovery from failures
+ban_time = 10
 
-# Log level: debug, info, warn, error
-log_level = "info"
+# Reduce logging overhead
+log_level = "warn"
 
 # =============================================================================
-# Connection Pools
+# Bench Pool - OLTP Low Latency
 # =============================================================================
 
 [pools.bench]
-# Pool mode: session, transaction, statement
 pool_mode = "transaction"
-
-# Load balancing: random, round_robin, least_connections
 load_balancing_mode = "random"
-
-# Default database and user
 default_role = "primary"
 
-# Query parser (for prepared statements): disabled, simple
-query_parser_enabled = true
+# === KEY LATENCY OPTIMIZATION ===
+# Disable query parsing - pgbench uses simple protocol, no read/write split needed
+query_parser_enabled = false
 query_parser_read_write_splitting = false
 
-# Pool sizing
-pool_size = 50
-min_pool_size = 5
+# Large pool to handle burst traffic without waiting
+pool_size = 200
+min_pool_size = 100
 
-# Statement cache for prepared statements
-prepared_statements_cache_size = 200
+# Disable prepared statement cache (pgbench uses simple protocol)
+prepared_statements_cache_size = 0
 
-# Sharding disabled (single primary)
-
-# Users
 [pools.bench.users.0]
 username = "postgres"
 password = "postgres"
-pool_size = 50
-min_pool_size = 5
+pool_size = 200
+min_pool_size = 100
 
-# Shards (single primary)
 [pools.bench.shards.0]
 database = "bench"
 servers = [
@@ -83,14 +77,40 @@ servers = [
 ]
 
 # =============================================================================
-# Postgres Pool - For monitoring/diagnostics (pg_stat_*, etc.)
+# Sysbench Pool - TPC-C Workloads
+# =============================================================================
+
+[pools.sysbench]
+pool_mode = "transaction"
+load_balancing_mode = "random"
+default_role = "primary"
+query_parser_enabled = false
+query_parser_read_write_splitting = false
+pool_size = 200
+min_pool_size = 100
+prepared_statements_cache_size = 0
+
+[pools.sysbench.users.0]
+username = "postgres"
+password = "postgres"
+pool_size = 200
+min_pool_size = 100
+
+[pools.sysbench.shards.0]
+database = "sysbench"
+servers = [
+    ["10.0.1.10", 5432, "primary"]
+]
+
+# =============================================================================
+# Postgres Pool - For monitoring/diagnostics
 # =============================================================================
 
 [pools.postgres]
 pool_mode = "transaction"
 load_balancing_mode = "random"
 default_role = "primary"
-query_parser_enabled = true
+query_parser_enabled = false
 query_parser_read_write_splitting = false
 pool_size = 20
 min_pool_size = 5
@@ -106,19 +126,3 @@ database = "postgres"
 servers = [
     ["10.0.1.10", 5432, "primary"]
 ]
-
-# =============================================================================
-# Primary-Replica Configuration (future)
-# =============================================================================
-# Uncomment when replica is added:
-#
-# [pools.bench.shards.0]
-# database = "bench"
-# servers = [
-#     ["10.0.1.10", 5432, "primary"],
-#     ["10.0.1.11", 5432, "replica"]
-# ]
-#
-# Then set:
-# query_parser_read_write_splitting = true
-# =============================================================================
