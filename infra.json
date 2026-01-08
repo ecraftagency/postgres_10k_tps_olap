@@ -1,0 +1,91 @@
+{
+  "db_node": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "instance_id": "string",
+        "instance_type": "string",
+        "private_ip": "string",
+        "public_ip": "string",
+        "ram_gb": "number",
+        "vcpu": "number"
+      }
+    ],
+    "value": {
+      "instance_id": "i-0c5cd313c99b0738a",
+      "instance_type": "r8g.xlarge",
+      "private_ip": "10.0.1.10",
+      "public_ip": "13.229.110.106",
+      "ram_gb": 32,
+      "vcpu": 4
+    }
+  },
+  "proxy_node": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "instance_id": "string",
+        "instance_type": "string",
+        "private_ip": "string",
+        "public_ip": "string",
+        "ram_gb": "number",
+        "vcpu": "number"
+      }
+    ],
+    "value": {
+      "instance_id": "i-0cae4e0bd6afa873b",
+      "instance_type": "c8g.xlarge",
+      "private_ip": "10.0.1.20",
+      "public_ip": "54.151.242.157",
+      "ram_gb": 8,
+      "vcpu": 4
+    }
+  },
+  "storage": {
+    "sensitive": false,
+    "type": [
+      "object",
+      {
+        "data_volumes": [
+          "tuple",
+          [
+            "string",
+            "string",
+            "string",
+            "string"
+          ]
+        ],
+        "wal_volumes": [
+          "tuple",
+          [
+            "string",
+            "string",
+            "string",
+            "string"
+          ]
+        ]
+      }
+    ],
+    "value": {
+      "data_volumes": [
+        "vol-057dc7560a91acb53",
+        "vol-020166c4a86b861b2",
+        "vol-04a1a48acfef6850b",
+        "vol-0c4f3988561510c52"
+      ],
+      "wal_volumes": [
+        "vol-08d037dde2bfdd06c",
+        "vol-0294f1dabd0d97283",
+        "vol-05e39777419f265db",
+        "vol-082ea81b36636e00f"
+      ]
+    }
+  },
+  "topology": {
+    "sensitive": false,
+    "type": "string",
+    "value": "proxy-primary"
+  }
+}

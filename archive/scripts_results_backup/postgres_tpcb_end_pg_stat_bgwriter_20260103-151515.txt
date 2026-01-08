@@ -1,5 +1,0 @@
- buffers_checkpoint | buffers_clean | buffers_backend | buffers_alloc 
---------------------+---------------+-----------------+---------------
-               7418 |         44438 |          455969 |        697955
-(1 row)
-

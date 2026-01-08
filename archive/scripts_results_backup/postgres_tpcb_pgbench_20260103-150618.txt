@@ -1,4 +1,0 @@
-pgbench (16.11 (Ubuntu 16.11-1.pgdg24.04+1))
-starting vacuum...end.
-pgbench: error: could not open logfile "pgbench_tpcb.38333.1": Permission denied
-pgbench: error: could not open logfile "pgbench_tpcb.38333.2": Permission denied

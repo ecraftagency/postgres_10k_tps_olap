@@ -1,0 +1,12 @@
+[Unit]
+Description=Block Device Tuning for PostgreSQL
+After=local-fs.target data.mount wal.mount
+Wants=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'sleep 2 && echo 4096 > /sys/block/md0/queue/read_ahead_kb && echo 4096 > /sys/block/md1/queue/read_ahead_kb'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

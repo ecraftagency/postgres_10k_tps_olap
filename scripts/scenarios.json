@@ -1,0 +1,1052 @@
+{
+    "defaults": {
+        "duration": 60
+    },
+    "disks": {
+        "data": {
+            "name": "DATA",
+            "mount_point": "/data",
+            "device": "/dev/md0",
+            "volumes": [
+                "md0"
+            ]
+        },
+        "wal": {
+            "name": "WAL",
+            "mount_point": "/wal",
+            "device": "/dev/md1",
+            "volumes": [
+                "md1"
+            ]
+        },
+        "postgres": {
+            "name": "POSTGRES",
+            "mount_point": "/data,/wal",
+            "device": "/dev/md0,/dev/md1",
+            "volumes": [
+                "md0",
+                "md1"
+            ]
+        }
+    },
+    "scenarios": {
+        "1": {
+            "id": "wal_heartbeat",
+            "name": "The Heartbeat",
+            "desc": "Commit Latency - Single backend sync write (QD1+fdatasync)",
+            "target_disk": "wal",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=wal_commit_latency",
+                        "--filename=/wal/bench_wal_lat",
+                        "--size=2G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=8k",
+                        "--rw=write",
+                        "--fdatasync=1",
+                        "--iodepth=1",
+                        "--numjobs=1",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/wal/bench_wal_lat"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "2": {
+            "id": "data_stress",
+            "name": "Stress Test",
+            "desc": "Mixed IOPS - Random R/W 70:30 at saturation (QD64x4)",
+            "target_disk": "data",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=data_stress_test",
+                        "--filename=/data/bench_data_stress",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=8k",
+                        "--rw=randrw",
+                        "--rwmixread=70",
+                        "--iodepth=64",
+                        "--numjobs=4",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/data/bench_data_stress"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "3": {
+            "id": "data_latency",
+            "name": "Latency",
+            "desc": "Single Thread Random Read - True EBS latency (QD1)",
+            "target_disk": "data",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=data_latency_test",
+                        "--filename=/data/bench_data_lat",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=8k",
+                        "--rw=randread",
+                        "--iodepth=1",
+                        "--numjobs=1",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/data/bench_data_lat"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "4": {
+            "id": "data_throughput",
+            "name": "Throughput",
+            "desc": "Sequential Read - Max bandwidth (1MB blocks, QD16)",
+            "target_disk": "data",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=data_throughput_test",
+                        "--filename=/data/bench_data_bw",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=1M",
+                        "--rw=read",
+                        "--iodepth=16",
+                        "--numjobs=1",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/data/bench_data_bw"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "5": {
+            "id": "wal_firehose",
+            "name": "The Firehose",
+            "desc": "Sequential Throughput - Max write bandwidth (1MB, no fsync)",
+            "target_disk": "wal",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=wal_throughput",
+                        "--filename=/wal/bench_wal_bw",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=1M",
+                        "--rw=write",
+                        "--iodepth=16",
+                        "--numjobs=1",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/wal/bench_wal_bw"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "6": {
+            "id": "wal_trafficjam",
+            "name": "The Traffic Jam",
+            "desc": "Group Commit Stress - Multi-thread sync write (QD32x4+fdatasync)",
+            "target_disk": "wal",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=wal_group_commit",
+                        "--filename=/wal/bench_wal_stress",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=32k",
+                        "--rw=write",
+                        "--fdatasync=1",
+                        "--iodepth=32",
+                        "--numjobs=4",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/wal/bench_wal_stress"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "7": {
+            "id": "data_seq_write",
+            "name": "Sequential Write",
+            "desc": "Checkpoint-style - Large sequential writes (1MB blocks, QD16)",
+            "target_disk": "data",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=data_seq_write_test",
+                        "--filename=/data/bench_data_seqw",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=1M",
+                        "--rw=write",
+                        "--iodepth=16",
+                        "--numjobs=1",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/data/bench_data_seqw"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "8": {
+            "id": "data_rand_write",
+            "name": "Random Write",
+            "desc": "Pure Write IOPS - Random writes only (8K blocks, QD64x4)",
+            "target_disk": "data",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=data_rand_write_test",
+                        "--filename=/data/bench_data_randw",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=8k",
+                        "--rw=randwrite",
+                        "--iodepth=64",
+                        "--numjobs=4",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/data/bench_data_randw"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "9": {
+            "id": "data_mixed_sync",
+            "name": "Mixed Sync",
+            "desc": "DB-Realistic - Random R/W 70:30 with fdatasync (QD32x4)",
+            "target_disk": "data",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=data_mixed_sync_test",
+                        "--filename=/data/bench_data_sync",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=8k",
+                        "--rw=randrw",
+                        "--rwmixread=70",
+                        "--fdatasync=1",
+                        "--iodepth=32",
+                        "--numjobs=4",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/data/bench_data_sync"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "10": {
+            "id": "wal_replay",
+            "name": "Recovery Replay",
+            "desc": "Sequential Read - Simulates Replica Catch-up or Crash Recovery",
+            "target_disk": "wal",
+            "duration": 60,
+            "begin": [],
+            "parallel": [
+                {
+                    "name": "fio",
+                    "cmd": [
+                        "fio",
+                        "--name=wal_read_replay",
+                        "--filename=/wal/bench_wal_replay",
+                        "--size=5G",
+                        "--time_based",
+                        "--runtime={duration}s",
+                        "--ioengine=libaio",
+                        "--direct=1",
+                        "--bs=1M",
+                        "--rw=read",
+                        "--iodepth=8",
+                        "--numjobs=1",
+                        "--group_reporting"
+                    ],
+                    "primary": true,
+                    "cleanup": "/wal/bench_wal_replay"
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "iostat",
+                        "-xz",
+                        "1",
+                        "{duration}"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "mpstat",
+                        "-P",
+                        "ALL",
+                        "1",
+                        "{duration}"
+                    ]
+                }
+            ],
+            "end": []
+        },
+        "11": {
+            "id": "postgres_tpcb",
+            "name": "TPC-B Benchmark",
+            "desc": "Standard pgbench TPC-B with {clients} clients / {threads} threads",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "duration": 60,
+            "clients": 100,
+            "threads": 4,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "pgbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres pgbench -h {host} -p {port} -U postgres bench -c {clients} -j {threads} -T {duration} -P 5 --no-vacuum"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_user_tables",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT relname, seq_scan, idx_scan, n_tup_ins, n_tup_upd, n_tup_upd, n_tup_del, n_live_tup, n_dead_tup FROM pg_stat_user_tables ORDER BY n_tup_upd DESC;'"
+                    ]
+                },
+                {
+                    "name": "pg_statio_user_tables",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT relname, heap_blks_read, heap_blks_hit, idx_blks_read, idx_blks_hit FROM pg_statio_user_tables ORDER BY heap_blks_read DESC;'"
+                    ]
+                },
+                {
+                    "name": "pg_locks_summary",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT mode, count(*) FROM pg_locks GROUP BY mode ORDER BY count DESC;'"
+                    ]
+                },
+                {
+                    "name": "pg_settings_memory",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT name, setting, unit FROM pg_settings WHERE name IN ('\"'\"'shared_buffers'\"'\"', '\"'\"'effective_cache_size'\"'\"', '\"'\"'work_mem'\"'\"', '\"'\"'maintenance_work_mem'\"'\"', '\"'\"'wal_buffers'\"'\"', '\"'\"'max_connections'\"'\"', '\"'\"'huge_pages'\"'\"');'"
+                    ]
+                },
+                {
+                    "name": "pg_settings_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT name, setting, unit FROM pg_settings WHERE name LIKE '\"'\"'%wal%'\"'\"' OR name LIKE '\"'\"'%commit%'\"'\"' OR name LIKE '\"'\"'%checkpoint%'\"'\"' ORDER BY name;'"
+                    ]
+                },
+                {
+                    "name": "pg_settings_io",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT name, setting, unit FROM pg_settings WHERE name IN ('\"'\"'bgwriter_delay'\"'\"', '\"'\"'bgwriter_lru_maxpages'\"'\"', '\"'\"'bgwriter_lru_multiplier'\"'\"', '\"'\"'effective_io_concurrency'\"'\"', '\"'\"'random_page_cost'\"'\"', '\"'\"'seq_page_cost'\"'\"');'"
+                    ]
+                }
+            ]
+        },
+        "12": {
+            "id": "postgres_pure_read",
+            "name": "Pure Read",
+            "desc": "SELECT-only workload - Tests RAM/cache throughput (pgbench -S)",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "duration": 60,
+            "clients": 100,
+            "threads": 4,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "pgbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres pgbench -h {host} -p {port} -U postgres bench -c {clients} -j {threads} -T {duration} -P 5 -S"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                }
+            ]
+        },
+        "13": {
+            "id": "postgres_connection_storm",
+            "name": "Connection Storm",
+            "desc": "Connect per transaction - Tests connection/auth overhead (pgbench -C)",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "duration": 60,
+            "clients": 50,
+            "threads": 8,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "pgbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres pgbench -h {host} -p {port} -U postgres bench -c {clients} -j {threads} -T {duration} -P 5 -S -C"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                }
+            ]
+        },
+        "14": {
+            "id": "postgres_high_concurrency",
+            "name": "High Concurrency",
+            "desc": "High concurrency stress test - {clients} clients",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "duration": 60,
+            "clients": 200,
+            "threads": 16,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "pgbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres pgbench -h {host} -p {port} -U postgres bench -c {clients} -j {threads} -T {duration} -P 5 --no-vacuum"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                }
+            ]
+        },
+        "15": {
+            "id": "postgres_tpcb_prepared",
+            "name": "TPC-B Prepared Statements",
+            "desc": "pgbench with prepared statements - lower parse overhead ({clients} clients)",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "duration": 60,
+            "clients": 100,
+            "threads": 4,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "pgbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres pgbench -h {host} -p {port} -U postgres bench -c {clients} -j {threads} -T {duration} -P 5 -M prepared --no-vacuum"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
+                    ]
+                }
+            ]
+        }
+    }
+}

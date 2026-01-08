@@ -1,4 +1,0 @@
-pgbench (16.11 (Ubuntu 16.11-1.pgdg24.04+1))
-starting vacuum...end.
-pgbench: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  sorry, too many clients already
-pgbench: error: could not create connection for client 824

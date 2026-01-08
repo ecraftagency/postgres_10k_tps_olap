@@ -1,0 +1,14 @@
+[Unit]
+Description=PgCat PostgreSQL Connection Pooler
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/usr/local/bin/pgcat /etc/pgcat/pgcat.toml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

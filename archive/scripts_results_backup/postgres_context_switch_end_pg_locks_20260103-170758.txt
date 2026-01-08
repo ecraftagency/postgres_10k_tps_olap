@@ -1,6 +1,0 @@
-      mode       | count 
------------------+-------
- ExclusiveLock   |     1
- AccessShareLock |     1
-(2 rows)
-

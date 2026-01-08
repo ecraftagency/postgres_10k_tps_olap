@@ -1,0 +1,7 @@
+# Example: terraform.tfvars
+# Copy to terraform.tfvars and update values
+
+key_name      = "your-ssh-key-name"
+# instance_type = "c8g.4xlarge"  # Default for Phase 1
+# aws_region    = "ap-southeast-1"
+# aws_profile   = "boxloop-admin"
