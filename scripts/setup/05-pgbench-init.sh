@@ -31,7 +31,9 @@ echo "Current rows: ${EXISTING_ROWS}, Expected: ${EXPECTED_ROWS}. Initializing..
 
 # Drop and recreate database
 echo "[1/3] Recreating database..."
-sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DATABASE};" 2>/dev/null || true
+# Terminate active connections first (pgcat keeps pools open)
+sudo -u postgres psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DATABASE}' AND pid <> pg_backend_pid();" 2>/dev/null || true
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DATABASE};"
 sudo -u postgres psql -c "CREATE DATABASE ${DATABASE} OWNER ${PG_USER};"
 
 # Initialize pgbench
