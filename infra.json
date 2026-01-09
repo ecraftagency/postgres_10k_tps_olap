@@ -1,24 +1,75 @@
 {
-  "db_node": {
+  "db_nodes": {
     "sensitive": false,
     "type": [
       "object",
       {
-        "instance_id": "string",
-        "instance_type": "string",
-        "private_ip": "string",
-        "public_ip": "string",
-        "ram_gb": "number",
-        "vcpu": "number"
+        "async_replica": [
+          "object",
+          {
+            "instance_id": "string",
+            "instance_type": "string",
+            "private_ip": "string",
+            "public_ip": "string",
+            "ram_gb": "number",
+            "role": "string",
+            "vcpu": "number"
+          }
+        ],
+        "primary": [
+          "object",
+          {
+            "instance_id": "string",
+            "instance_type": "string",
+            "private_ip": "string",
+            "public_ip": "string",
+            "ram_gb": "number",
+            "role": "string",
+            "vcpu": "number"
+          }
+        ],
+        "sync_replica": [
+          "object",
+          {
+            "instance_id": "string",
+            "instance_type": "string",
+            "private_ip": "string",
+            "public_ip": "string",
+            "ram_gb": "number",
+            "role": "string",
+            "vcpu": "number"
+          }
+        ]
       }
     ],
     "value": {
-      "instance_id": "i-04b32eac8be46c7f9",
-      "instance_type": "r7g.xlarge",
-      "private_ip": "10.0.1.10",
-      "public_ip": "18.136.120.246",
-      "ram_gb": 32,
-      "vcpu": 4
+      "async_replica": {
+        "instance_id": "i-023ceff15eb63d5f5",
+        "instance_type": "r7g.xlarge",
+        "private_ip": "10.0.1.12",
+        "public_ip": "18.138.255.43",
+        "ram_gb": 32,
+        "role": "async-replica",
+        "vcpu": 4
+      },
+      "primary": {
+        "instance_id": "i-0c3a699eab19619ad",
+        "instance_type": "r7g.xlarge",
+        "private_ip": "10.0.1.10",
+        "public_ip": "52.221.241.82",
+        "ram_gb": 32,
+        "role": "primary",
+        "vcpu": 4
+      },
+      "sync_replica": {
+        "instance_id": "i-0039879faf7acc56d",
+        "instance_type": "r7g.xlarge",
+        "private_ip": "10.0.1.11",
+        "public_ip": "18.142.227.105",
+        "ram_gb": 32,
+        "role": "sync-replica",
+        "vcpu": 4
+      }
     }
   },
   "proxy_node": {
@@ -35,10 +86,10 @@
       }
     ],
     "value": {
-      "instance_id": "i-025bc9d8734e07b01",
+      "instance_id": "i-0800830b801f344d7",
       "instance_type": "c8g.xlarge",
       "private_ip": "10.0.1.20",
-      "public_ip": "13.215.185.232",
+      "public_ip": "13.213.59.250",
       "ram_gb": 8,
       "vcpu": 4
     }
@@ -48,7 +99,7 @@
     "type": [
       "object",
       {
-        "data_volumes": [
+        "async_replica_data_volumes": [
           "tuple",
           [
             "string",
@@ -57,7 +108,43 @@
             "string"
           ]
         ],
-        "wal_volumes": [
+        "async_replica_wal_volumes": [
+          "tuple",
+          [
+            "string",
+            "string",
+            "string",
+            "string"
+          ]
+        ],
+        "primary_data_volumes": [
+          "tuple",
+          [
+            "string",
+            "string",
+            "string",
+            "string"
+          ]
+        ],
+        "primary_wal_volumes": [
+          "tuple",
+          [
+            "string",
+            "string",
+            "string",
+            "string"
+          ]
+        ],
+        "sync_replica_data_volumes": [
+          "tuple",
+          [
+            "string",
+            "string",
+            "string",
+            "string"
+          ]
+        ],
+        "sync_replica_wal_volumes": [
           "tuple",
           [
             "string",
@@ -69,23 +156,47 @@
       }
     ],
     "value": {
-      "data_volumes": [
-        "vol-051dfbd38184f9a91",
-        "vol-01bc895a6856915d5",
-        "vol-0a51e990e72e91e73",
-        "vol-08c84678b26570fda"
+      "async_replica_data_volumes": [
+        "vol-0274e554456aaf546",
+        "vol-01437ae74447906a3",
+        "vol-09ac2cf9f55527106",
+        "vol-03021a5933de35e1c"
       ],
-      "wal_volumes": [
-        "vol-0774639b17730ecbb",
-        "vol-05053be9cde80d9a8",
-        "vol-0a815c5a487927236",
-        "vol-0685a31aad89e8bd4"
+      "async_replica_wal_volumes": [
+        "vol-0dc371dd522ac8c1f",
+        "vol-0dfb85f477747e521",
+        "vol-0f82eebf7eacc31f1",
+        "vol-0e8462febdb423133"
+      ],
+      "primary_data_volumes": [
+        "vol-037cfeb998df5023c",
+        "vol-08eb9167a41438004",
+        "vol-089ef60c9821575a2",
+        "vol-0120363f755637cb4"
+      ],
+      "primary_wal_volumes": [
+        "vol-0442bd029ed3173f5",
+        "vol-02e8d2da82c429bab",
+        "vol-0dd0fdf6d6d9981ff",
+        "vol-0ff26d27c50717f94"
+      ],
+      "sync_replica_data_volumes": [
+        "vol-00a69765a44bf3e3b",
+        "vol-0c7cfe335349c0de5",
+        "vol-06e4f572056349541",
+        "vol-026e5c48265b57081"
+      ],
+      "sync_replica_wal_volumes": [
+        "vol-040d8bd71777c57dd",
+        "vol-03b5d172608e2e1a2",
+        "vol-01151ef819984c3e4",
+        "vol-0bfc083fd4ccb753c"
       ]
     }
   },
   "topology": {
     "sensitive": false,
     "type": "string",
-    "value": "proxy-primary"
+    "value": "proxy-primary-replicas"
   }
 }

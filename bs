@@ -236,8 +236,8 @@ get_role_env() {
     local node=$1
     case "$node" in
         primary) echo "ROLE=primary" ;;
-        sync)    echo "ROLE=sync-replica" ;;
-        async)   echo "ROLE=async-replica" ;;
+        sync)    echo "ROLE=sync_replica" ;;
+        async)   echo "ROLE=async_replica" ;;
         proxy)   echo "" ;;
     esac
 }
@@ -252,10 +252,11 @@ cmd_tf() {
     case "$subcmd" in
         apply)
             log "Terraform apply..."
-            if dry "cd $TERRAFORM_DIR && terraform apply -auto-approve"; then
+            if dry "cd $TERRAFORM_DIR && terraform init && terraform apply -auto-approve"; then
                 return 0
             fi
             cd "$TERRAFORM_DIR"
+            terraform init -upgrade
             terraform apply -auto-approve
             terraform output -json > "$INFRA_JSON"
             cd "$SCRIPT_DIR"
@@ -445,8 +446,8 @@ cmd_run() {
         if [[ "$script_name" == "repl" ]]; then
             case "$node" in
                 primary) cmd="sudo $script_path primary" ;;
-                sync)    cmd="sudo $script_path standby sync-replica" ;;
-                async)   cmd="sudo $script_path standby async-replica" ;;
+                sync)    cmd="sudo $script_path standby sync_replica" ;;
+                async)   cmd="sudo $script_path standby async_replica" ;;
             esac
         fi
 

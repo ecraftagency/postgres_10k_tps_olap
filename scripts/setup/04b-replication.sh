@@ -7,7 +7,7 @@
 # Usage:
 #   On PRIMARY: sudo ./04b-replication.sh primary
 #   On STANDBY: sudo ./04b-replication.sh standby <role>
-#               where role = sync-replica or async-replica
+#               where role = sync_replica or async_replica
 #
 # Prerequisites:
 #   - Primary must be running with 04-postgres.sh completed
@@ -26,7 +26,7 @@ if [[ -z "$MODE" ]]; then
     echo "Usage: $0 <primary|standby> [role]"
     echo "  primary - Setup primary for replication (create replicator user)"
     echo "  standby <role> - Setup standby via pg_basebackup"
-    echo "    role: sync-replica or async-replica"
+    echo "    role: sync_replica or async_replica"
     exit 1
 fi
 
@@ -70,7 +70,7 @@ setup_primary() {
 setup_standby() {
     if [[ -z "$ROLE" ]]; then
         echo "ERROR: Role required for standby setup"
-        echo "Usage: $0 standby <sync-replica|async-replica>"
+        echo "Usage: $0 standby <sync_replica|async_replica>"
         exit 1
     fi
 
@@ -112,7 +112,14 @@ setup_standby() {
 
     # pg_basebackup from primary
     echo "[3/6] Running pg_basebackup from primary ($PRIMARY_HOST)..."
-    PGPASSWORD="$REPL_PASS" sudo -u postgres /usr/lib/postgresql/${PG_VERSION}/bin/pg_basebackup \
+
+    # Create .pgpass for postgres user (sudo strips PGPASSWORD)
+    PGPASS_FILE="/var/lib/postgresql/.pgpass"
+    echo "${PRIMARY_HOST}:${PRIMARY_PORT}:*:${REPL_USER}:${REPL_PASS}" > "$PGPASS_FILE"
+    chown postgres:postgres "$PGPASS_FILE"
+    chmod 600 "$PGPASS_FILE"
+
+    sudo -u postgres /usr/lib/postgresql/${PG_VERSION}/bin/pg_basebackup \
         -h "$PRIMARY_HOST" \
         -p "$PRIMARY_PORT" \
         -U "$REPL_USER" \
@@ -121,6 +128,9 @@ setup_standby() {
         -Fp -Xs -P -R \
         --slot="$SLOT_NAME" \
         -c fast
+
+    # Clean up .pgpass
+    rm -f "$PGPASS_FILE"
 
     # Create standby.signal
     echo "[4/6] Creating standby.signal..."

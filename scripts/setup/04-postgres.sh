@@ -9,8 +9,8 @@
 # - User: postgres / postgres
 #
 # Usage: sudo ROLE=primary ./04-postgres.sh
-#        sudo ROLE=sync-replica ./04-postgres.sh
-#        sudo ROLE=async-replica ./04-postgres.sh
+#        sudo ROLE=sync_replica ./04-postgres.sh
+#        sudo ROLE=async_replica ./04-postgres.sh
 #
 # Note: For standby setup, use 04b-replication.sh after primary is running
 # =============================================================================
