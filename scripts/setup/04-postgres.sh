@@ -283,7 +283,7 @@ systemctl daemon-reload
 systemctl enable postgresql-bench
 
 # =============================================================================
-# START AND SET PASSWORD
+# START AND SET PASSWORD (Primary only - standbys use pg_basebackup)
 # =============================================================================
 echo "[7/7] Starting PostgreSQL and setting password..."
 
@@ -292,16 +292,24 @@ chown postgres:postgres "${PG_DATA_DIR}/log"
 
 systemctl start postgresql-bench
 
-# Wait for startup
-sleep 3
+# Wait for PostgreSQL to be ready
+echo "Waiting for PostgreSQL to be ready..."
+for i in {1..30}; do
+    if sudo -u postgres psql -c "SELECT 1;" &>/dev/null; then
+        echo "PostgreSQL is ready"
+        break
+    fi
+    sleep 1
+done
 
-# Set postgres password
-sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
-
-# Create bench database (primary only)
+# Primary-only setup (standbys are read-only and get data via pg_basebackup)
 if [[ "$ROLE" == "primary" ]]; then
-    sudo -u postgres psql -c "CREATE DATABASE bench OWNER postgres;" 2>/dev/null || true
-    sudo -u postgres psql -c "CREATE DATABASE sysbench OWNER postgres;" 2>/dev/null || true
+    # Set postgres password
+    sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+
+    # Create benchmark databases
+    sudo -u postgres psql -c "CREATE DATABASE bench OWNER postgres;" || echo "bench database already exists"
+    sudo -u postgres psql -c "CREATE DATABASE sysbench OWNER postgres;" || echo "sysbench database already exists"
 fi
 
 # =============================================================================
