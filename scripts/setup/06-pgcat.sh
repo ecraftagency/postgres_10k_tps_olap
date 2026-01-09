@@ -155,6 +155,22 @@ sysctl -w net.ipv4.tcp_max_syn_backlog=65535 2>/dev/null || true
 sysctl -w net.core.netdev_max_backlog=65535 2>/dev/null || true
 
 # =============================================================================
+# Setup SSH key for benchmark metrics collection
+# =============================================================================
+echo "=== Setting up SSH key for metrics collection ==="
+
+# Benchmark runs as sudo, so root needs SSH access to DB nodes
+if [[ -f /home/ubuntu/.ssh/id_rsa ]]; then
+    mkdir -p /root/.ssh
+    cp /home/ubuntu/.ssh/id_rsa /root/.ssh/
+    chmod 600 /root/.ssh/id_rsa
+    echo "SSH key copied to /root/.ssh for benchmark metrics collection"
+else
+    echo "WARNING: No SSH key found at /home/ubuntu/.ssh/id_rsa"
+    echo "Benchmark metrics collection (iostat/mpstat) will fail"
+fi
+
+# =============================================================================
 # Start PgCat
 # =============================================================================
 echo "=== Starting PgCat ==="
