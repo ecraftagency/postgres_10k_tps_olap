@@ -5,18 +5,24 @@
 # Applies OS tuning settings and makes them PERSISTENT across reboots.
 # This is critical for snapshot recovery scenarios.
 #
+# Config hierarchy:
+#   - common/network.env  -> ALL nodes (TCP/network)
+#   - common/kernel.env   -> ALL nodes (scheduler)
+#   - db/os.env           -> DB nodes only (memory, HugePages)
+#   - proxy/os.env        -> Proxy only (ulimits)
+#
 # Persistence locations:
 #   - sysctl: /etc/sysctl.d/99-postgres.conf
 #   - ulimits: /etc/security/limits.d/99-postgres.conf
 #   - hugepages: /etc/sysctl.d/99-hugepages.conf
 #   - THP: systemd service
 #
-# Usage: sudo ./01-os-tuning.sh [config.env]
+# Usage: sudo ./01-os-tuning.sh
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_FILE="${SCRIPT_DIR}/../config/os.env"
+CONFIG_DIR="${SCRIPT_DIR}/../config"
 
 # Detect node type: DB node has RAID arrays or will have them
 # Proxy node has neither and won't get PostgreSQL
@@ -30,12 +36,33 @@ else
     echo "=== OS Tuning (Proxy Node - TCP Only) ==="
 fi
 
-# Source config from standard location
-if [[ -f "$CONFIG_FILE" ]]; then
-    echo "Loading config from: $CONFIG_FILE"
-    source "$CONFIG_FILE"
+# =============================================================================
+# LOAD CONFIGS - Hierarchical
+# =============================================================================
+echo "[0/5] Loading configuration..."
+
+# Common configs (ALL nodes)
+if [[ -f "$CONFIG_DIR/common/network.env" ]]; then
+    echo "  Loading: common/network.env"
+    source "$CONFIG_DIR/common/network.env"
+fi
+
+if [[ -f "$CONFIG_DIR/common/kernel.env" ]]; then
+    echo "  Loading: common/kernel.env"
+    source "$CONFIG_DIR/common/kernel.env"
+fi
+
+# Node-specific configs
+if [[ "$IS_DB_NODE" == "true" ]]; then
+    if [[ -f "$CONFIG_DIR/db/os.env" ]]; then
+        echo "  Loading: db/os.env"
+        source "$CONFIG_DIR/db/os.env"
+    fi
 else
-    echo "WARNING: Config file not found: $CONFIG_FILE (using defaults)"
+    if [[ -f "$CONFIG_DIR/proxy/os.env" ]]; then
+        echo "  Loading: proxy/os.env"
+        source "$CONFIG_DIR/proxy/os.env"
+    fi
 fi
 
 # =============================================================================
@@ -120,6 +147,10 @@ net.ipv4.tcp_keepalive_probes = ${NET_IPV4_TCP_KEEPALIVE_PROBES:-6}
 # === CONGESTION CONTROL (BBR for lower latency) ===
 net.core.default_qdisc = ${NET_CORE_DEFAULT_QDISC:-fq}
 net.ipv4.tcp_congestion_control = ${NET_IPV4_TCP_CONGESTION_CONTROL:-bbr}
+
+# === KERNEL ===
+kernel.sched_autogroup_enabled = ${KERNEL_SCHED_AUTOGROUP_ENABLED:-0}
+kernel.numa_balancing = ${KERNEL_NUMA_BALANCING:-0}
 EOF
 fi
 
@@ -196,10 +227,10 @@ else
     echo "[2/5] Configuring ulimits for PgCat..."
     cat > /etc/security/limits.d/99-pgcat.conf << EOF
 # PgCat proxy limits
-* soft nofile 65535
-* hard nofile 65535
-ubuntu soft nofile 65535
-ubuntu hard nofile 65535
+* soft nofile ${ULIMIT_NOFILE:-65535}
+* hard nofile ${ULIMIT_NOFILE:-65535}
+ubuntu soft nofile ${ULIMIT_NOFILE:-65535}
+ubuntu hard nofile ${ULIMIT_NOFILE:-65535}
 EOF
     echo "[3/5] Skipping HugePages (proxy)"
     echo "[4/5] Skipping THP disable (proxy)"

@@ -10,7 +10,7 @@
 | Role | AMI ID | Name |
 |------|--------|------|
 | Database | `ami-062df3ef10cbd6ef3` | postgres-c8g-golden-20260108 |
-| Proxy | `ami-094f3faa5f71b7a66` | proxy-c8g-benchmark-20260108 |
+| Proxy | `ami-05d869c8b9f45ecf5` | proxy-c8g-benchmark-20260108-v2 |
 
 ## Verified Ceiling
 **11,300 TPS** on r8g.xlarge (2,815 TPS/Core)

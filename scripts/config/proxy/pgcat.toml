@@ -1,9 +1,10 @@
 # =============================================================================
-# PgCat Configuration - Low Latency OLTP Optimized
+# PgCat Configuration - Read/Write Split with Replicas
 # =============================================================================
 # PostgreSQL connection pooler - https://github.com/postgresml/pgcat
-# Target: Minimum latency overhead for OLTP workloads
+# Target: Route writes to primary, reads to replicas
 # Hardware: c8g.xlarge proxy (4 vCPU, 8GB RAM)
+# Topology: 1 primary + 1 sync replica + 1 async replica
 # =============================================================================
 
 [general]
@@ -33,18 +34,18 @@ tcp_keepalives_interval = 1
 # Shutdown
 shutdown_timeout = 60000
 
-# Health checks - less frequent to reduce overhead
-healthcheck_delay = 60000
+# Health checks - frequent for fast failover detection
+healthcheck_delay = 5000
 healthcheck_timeout = 1000
 
 # Quick recovery from failures
-ban_time = 10
+ban_time = 30
 
 # Reduce logging overhead
 log_level = "warn"
 
 # =============================================================================
-# Bench Pool - OLTP Low Latency
+# Bench Pool - OLTP with Read/Write Split
 # =============================================================================
 
 [pools.bench]
@@ -52,10 +53,10 @@ pool_mode = "transaction"
 load_balancing_mode = "random"
 default_role = "primary"
 
-# === KEY LATENCY OPTIMIZATION ===
-# Disable query parsing - pgbench uses simple protocol, no read/write split needed
-query_parser_enabled = false
-query_parser_read_write_splitting = false
+# === READ/WRITE SPLITTING ===
+# Enable query parser for automatic routing
+query_parser_enabled = true
+query_parser_read_write_splitting = true
 
 # Large pool to handle burst traffic without waiting
 pool_size = 200
@@ -73,19 +74,21 @@ min_pool_size = 100
 [pools.bench.shards.0]
 database = "bench"
 servers = [
-    ["10.0.1.10", 5432, "primary"]
+    ["10.0.1.10", 5432, "primary"],
+    ["10.0.1.11", 5432, "replica"],
+    ["10.0.1.12", 5432, "replica"]
 ]
 
 # =============================================================================
-# Sysbench Pool - TPC-C Workloads
+# Sysbench Pool - TPC-C Workloads with Read/Write Split
 # =============================================================================
 
 [pools.sysbench]
 pool_mode = "transaction"
 load_balancing_mode = "random"
 default_role = "primary"
-query_parser_enabled = false
-query_parser_read_write_splitting = false
+query_parser_enabled = true
+query_parser_read_write_splitting = true
 pool_size = 200
 min_pool_size = 100
 prepared_statements_cache_size = 0
@@ -99,11 +102,13 @@ min_pool_size = 100
 [pools.sysbench.shards.0]
 database = "sysbench"
 servers = [
-    ["10.0.1.10", 5432, "primary"]
+    ["10.0.1.10", 5432, "primary"],
+    ["10.0.1.11", 5432, "replica"],
+    ["10.0.1.12", 5432, "replica"]
 ]
 
 # =============================================================================
-# Postgres Pool - For monitoring/diagnostics
+# Postgres Pool - For monitoring/diagnostics (primary only)
 # =============================================================================
 
 [pools.postgres]

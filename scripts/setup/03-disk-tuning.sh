@@ -11,12 +11,17 @@
 # =============================================================================
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/../config/db/disk.env"
+
 echo "=== Block Device Tuning with Persistence ==="
 
-# Source config if provided
-if [[ -n "${1:-}" && -f "$1" ]]; then
-    echo "Loading config from: $1"
-    source "$1"
+# Source config from standard location
+if [[ -f "$CONFIG_FILE" ]]; then
+    echo "Loading config from: $CONFIG_FILE"
+    source "$CONFIG_FILE"
+else
+    echo "WARNING: Config file not found: $CONFIG_FILE (using defaults)"
 fi
 
 # Defaults

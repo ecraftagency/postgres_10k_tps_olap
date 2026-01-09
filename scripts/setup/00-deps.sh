@@ -17,37 +17,29 @@ apt-get install -y mdadm xfsprogs nvme-cli
 # Common tools
 apt-get install -y fio sysstat python3 python3-pip postgresql-16
 
+# NOTE: PgCat is installed via 06-pgcat.sh on proxy node only
+
 # =============================================================================
-# PgCat - PostgreSQL Connection Pooler
+# Sysbench - Database Benchmark Tool
 # =============================================================================
-echo "=== Installing PgCat ==="
-PGCAT_VERSION="v1.2.0"
-ARCH=$(uname -m)
-if [ "$ARCH" = "aarch64" ]; then
-    PGCAT_ARCH="aarch64"
+echo "=== Installing Sysbench ==="
+if command -v sysbench &> /dev/null; then
+    echo "sysbench already installed: $(sysbench --version)"
 else
-    PGCAT_ARCH="x86_64"
+    # Install from apt (Ubuntu 24.04 has sysbench 1.0.20)
+    apt-get install -y sysbench
+    echo "sysbench installed: $(sysbench --version)"
 fi
 
-if command -v pgcat &> /dev/null; then
-    echo "pgcat already installed: $(pgcat --version)"
-else
-    URL="https://github.com/postgresml/pgcat/releases/download/${PGCAT_VERSION}/pgcat.${PGCAT_ARCH}-unknown-linux-gnu.tar.gz"
-    echo "Downloading PgCat from $URL..."
-    TMP_DIR=$(mktemp -d)
-    if curl -sSL "$URL" -o "$TMP_DIR/pgcat.tar.gz"; then
-        tar -xzf "$TMP_DIR/pgcat.tar.gz" -C "$TMP_DIR"
-        mv "$TMP_DIR/pgcat" /usr/local/bin/pgcat
-        chmod +x /usr/local/bin/pgcat
-        echo "PgCat ${PGCAT_VERSION} installed"
-    else
-        echo "WARNING: Failed to download PgCat (non-fatal)"
-    fi
-    rm -rf "$TMP_DIR"
+# Download TPC-C lua scripts (not included in Ubuntu package)
+if [ ! -f /usr/share/sysbench/tpcc.lua ]; then
+    echo "Downloading sysbench TPC-C scripts..."
+    TPCC_URL="https://raw.githubusercontent.com/Percona-Lab/sysbench-tpcc/master"
+    for f in tpcc.lua tpcc_common.lua tpcc_run.lua tpcc_check.lua; do
+        curl -sSL "$TPCC_URL/$f" -o "/usr/share/sysbench/$f"
+    done
+    echo "TPC-C scripts installed"
 fi
-
-# Create pgcat config directory
-mkdir -p /etc/pgcat
 
 # go-tpc for TPC-H benchmarks (ARM64 Graviton)
 # echo "=== Installing go-tpc ==="
@@ -81,7 +73,7 @@ echo ""
 echo "=== Verification ==="
 fio --version
 iostat -V
-pgcat --version 2>/dev/null || echo "pgcat: not installed"
+sysbench --version 2>/dev/null || echo "sysbench: not installed"
 psql --version
 
 echo ""

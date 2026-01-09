@@ -1,6 +1,11 @@
-# Proxy-Primary Topology
-# Primary DB: r8g.xlarge (10.0.1.10)
-# Proxy/Benchmark: r8g.large (10.0.1.20)
+# =============================================================================
+# Proxy-Primary-Replicas Topology
+# =============================================================================
+# Primary DB:     r7g.xlarge (10.0.1.10)
+# Sync Replica:   r7g.xlarge (10.0.1.11)
+# Async Replica:  r7g.xlarge (10.0.1.12)
+# Proxy/Bench:    c8g.xlarge (10.0.1.20)
+# =============================================================================
 
 terraform {
   required_providers {
@@ -35,33 +40,26 @@ resource "aws_key_pair" "main" {
 }
 
 variable "db_instance_type" {
-  default = "r8g.xlarge"
+  default = "r7g.xlarge"  # r8g.xlarge spot unavailable in ap-southeast-1
 }
 
 variable "proxy_instance_type" {
   default = "c8g.xlarge"
 }
 
-# Ubuntu 24.04 ARM64 AMI
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"]
+# Base Ubuntu 24.04 ARM64 AMI (golden AMIs unavailable)
+variable "db_ami_id" {
+  default = "ami-054240677cb44ffac"  # ubuntu-noble-24.04-arm64-server-20251212
+}
 
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*"]
-  }
-
-  filter {
-    name   = "architecture"
-    values = ["arm64"]
-  }
+variable "proxy_ami_id" {
+  default = "ami-054240677cb44ffac"  # ubuntu-noble-24.04-arm64-server-20251212
 }
 
 # Network
 module "network" {
   source            = "../../modules/network"
-  availability_zone = "${var.aws_region}a"
+  availability_zone = "${var.aws_region}b"
 }
 
 # Security
@@ -71,36 +69,82 @@ module "security" {
   vpc_cidr = module.network.vpc_cidr
 }
 
+# =============================================================================
+# DB NODES
+# =============================================================================
+
 # Primary DB Node (Spot)
-module "db" {
+module "primary" {
   source = "../../modules/db-node"
 
   node_name         = "primary"
   private_ip        = "10.0.1.10"
   instance_type     = var.db_instance_type
-  ami_id            = data.aws_ami.ubuntu.id
+  ami_id            = var.db_ami_id
   subnet_id         = module.network.subnet_id
   security_group_id = module.security.db_security_group_id
   key_name          = aws_key_pair.main.key_name
-  availability_zone = "${var.aws_region}a"
+  availability_zone = "${var.aws_region}b"
 
-  # RAID0: 4x DATA + 4x WAL
+  # Fresh EBS volumes for RAID setup
   data_volume_count = 4
   wal_volume_count  = 4
+  data_volume_size  = 50  # GB per volume
+  wal_volume_size   = 30  # GB per volume
 }
 
-# Proxy/Benchmark Node (Spot)
-# Using a simpler instance without extra EBS volumes for now
-resource "aws_spot_instance_request" "proxy" {
-  ami                    = data.aws_ami.ubuntu.id
+# Sync Replica DB Node (Spot)
+module "sync_replica" {
+  source = "../../modules/db-node"
+
+  node_name         = "sync-replica"
+  private_ip        = "10.0.1.11"
+  instance_type     = var.db_instance_type
+  ami_id            = var.db_ami_id
+  subnet_id         = module.network.subnet_id
+  security_group_id = module.security.db_security_group_id
+  key_name          = aws_key_pair.main.key_name
+  availability_zone = "${var.aws_region}b"
+
+  # Same storage config as primary
+  data_volume_count = 4
+  wal_volume_count  = 4
+  data_volume_size  = 50
+  wal_volume_size   = 30
+}
+
+# Async Replica DB Node (Spot)
+module "async_replica" {
+  source = "../../modules/db-node"
+
+  node_name         = "async-replica"
+  private_ip        = "10.0.1.12"
+  instance_type     = var.db_instance_type
+  ami_id            = var.db_ami_id
+  subnet_id         = module.network.subnet_id
+  security_group_id = module.security.db_security_group_id
+  key_name          = aws_key_pair.main.key_name
+  availability_zone = "${var.aws_region}b"
+
+  # Same storage config as primary
+  data_volume_count = 4
+  wal_volume_count  = 4
+  data_volume_size  = 50
+  wal_volume_size   = 30
+}
+
+# =============================================================================
+# PROXY NODE
+# =============================================================================
+
+# Proxy/Benchmark Node (on-demand for reliability)
+resource "aws_instance" "proxy" {
+  ami                    = var.proxy_ami_id
   instance_type          = var.proxy_instance_type
   subnet_id              = module.network.subnet_id
   private_ip             = "10.0.1.20"
   vpc_security_group_ids = [module.security.db_security_group_id]
   key_name               = aws_key_pair.main.key_name
-
-  spot_type            = "one-time"
-  wait_for_fulfillment = true
 
   root_block_device {
     volume_size = 30
@@ -116,6 +160,7 @@ resource "aws_spot_instance_request" "proxy" {
 locals {
   specs = {
     "c8g.xlarge" = { vcpu = 4, ram_gb = 8 }
+    "r7g.xlarge" = { vcpu = 4, ram_gb = 32 }
     "r8g.large"  = { vcpu = 2, ram_gb = 16 }
     "r8g.xlarge" = { vcpu = 4, ram_gb = 32 }
   }
@@ -126,25 +171,46 @@ locals {
 # ============================================================================
 
 output "topology" {
-  value = "proxy-primary"
+  value = "proxy-primary-replicas"
 }
 
-output "db_node" {
+output "db_nodes" {
   value = {
-    instance_id   = module.db.instance_id
-    public_ip     = module.db.public_ip
-    private_ip    = module.db.private_ip
-    instance_type = var.db_instance_type
-    vcpu          = local.specs[var.db_instance_type].vcpu
-    ram_gb        = local.specs[var.db_instance_type].ram_gb
+    primary = {
+      instance_id   = module.primary.instance_id
+      public_ip     = module.primary.public_ip
+      private_ip    = module.primary.private_ip
+      instance_type = var.db_instance_type
+      vcpu          = local.specs[var.db_instance_type].vcpu
+      ram_gb        = local.specs[var.db_instance_type].ram_gb
+      role          = "primary"
+    }
+    sync_replica = {
+      instance_id   = module.sync_replica.instance_id
+      public_ip     = module.sync_replica.public_ip
+      private_ip    = module.sync_replica.private_ip
+      instance_type = var.db_instance_type
+      vcpu          = local.specs[var.db_instance_type].vcpu
+      ram_gb        = local.specs[var.db_instance_type].ram_gb
+      role          = "sync-replica"
+    }
+    async_replica = {
+      instance_id   = module.async_replica.instance_id
+      public_ip     = module.async_replica.public_ip
+      private_ip    = module.async_replica.private_ip
+      instance_type = var.db_instance_type
+      vcpu          = local.specs[var.db_instance_type].vcpu
+      ram_gb        = local.specs[var.db_instance_type].ram_gb
+      role          = "async-replica"
+    }
   }
 }
 
 output "proxy_node" {
   value = {
-    instance_id   = aws_spot_instance_request.proxy.spot_instance_id
-    public_ip     = aws_spot_instance_request.proxy.public_ip
-    private_ip    = aws_spot_instance_request.proxy.private_ip
+    instance_id   = aws_instance.proxy.id
+    public_ip     = aws_instance.proxy.public_ip
+    private_ip    = aws_instance.proxy.private_ip
     instance_type = var.proxy_instance_type
     vcpu          = local.specs[var.proxy_instance_type].vcpu
     ram_gb        = local.specs[var.proxy_instance_type].ram_gb
@@ -153,7 +219,11 @@ output "proxy_node" {
 
 output "storage" {
   value = {
-    data_volumes = module.db.data_volume_ids
-    wal_volumes  = module.db.wal_volume_ids
+    primary_data_volumes       = module.primary.data_volume_ids
+    primary_wal_volumes        = module.primary.wal_volume_ids
+    sync_replica_data_volumes  = module.sync_replica.data_volume_ids
+    sync_replica_wal_volumes   = module.sync_replica.wal_volume_ids
+    async_replica_data_volumes = module.async_replica.data_volume_ids
+    async_replica_wal_volumes  = module.async_replica.wal_volume_ids
   }
 }

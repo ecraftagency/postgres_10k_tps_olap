@@ -71,17 +71,14 @@ variable "ebs_throughput" {
   default = 125
 }
 
-# EC2 Spot Instance
-resource "aws_spot_instance_request" "db" {
-  ami                  = var.ami_id
-  instance_type        = var.instance_type
-  subnet_id            = var.subnet_id
-  private_ip           = var.private_ip
+# EC2 Instance (on-demand for reliability)
+resource "aws_instance" "db" {
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  subnet_id              = var.subnet_id
+  private_ip             = var.private_ip
   vpc_security_group_ids = [var.security_group_id]
-  key_name             = var.key_name
-
-  spot_type            = "one-time"
-  wait_for_fulfillment = true
+  key_name               = var.key_name
 
   root_block_device {
     volume_size           = 20
@@ -112,7 +109,7 @@ resource "aws_volume_attachment" "data" {
   count       = var.data_volume_count
   device_name = "/dev/sd${element(["f", "g", "h", "i"], count.index)}"
   volume_id   = aws_ebs_volume.data[count.index].id
-  instance_id = aws_spot_instance_request.db.spot_instance_id
+  instance_id = aws_instance.db.id
   force_detach = true
 }
 
@@ -134,21 +131,21 @@ resource "aws_volume_attachment" "wal" {
   count       = var.wal_volume_count
   device_name = "/dev/sd${element(["j", "k", "l", "m"], count.index)}"
   volume_id   = aws_ebs_volume.wal[count.index].id
-  instance_id = aws_spot_instance_request.db.spot_instance_id
+  instance_id = aws_instance.db.id
   force_detach = true
 }
 
 # Outputs
 output "instance_id" {
-  value = aws_spot_instance_request.db.spot_instance_id
+  value = aws_instance.db.id
 }
 
 output "public_ip" {
-  value = aws_spot_instance_request.db.public_ip
+  value = aws_instance.db.public_ip
 }
 
 output "private_ip" {
-  value = aws_spot_instance_request.db.private_ip
+  value = aws_instance.db.private_ip
 }
 
 output "data_volume_ids" {

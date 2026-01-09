@@ -15,28 +15,58 @@ SERVICES_DIR="$SCRIPT_DIR/../services"
 # Default to OLTP config, can override with PGCAT_PROFILE=olap
 PGCAT_PROFILE="${PGCAT_PROFILE:-oltp}"
 
-echo "=== Configuring PgCat (profile: $PGCAT_PROFILE) ==="
+echo "=== PgCat Setup (profile: $PGCAT_PROFILE) ==="
 
-# =============================================================================
-# Verify PgCat is installed
-# =============================================================================
-if ! command -v pgcat &> /dev/null; then
-    echo "ERROR: pgcat not installed. Run 00-deps.sh first."
-    exit 1
+# Load common network config for TCP settings
+if [[ -f "$CONFIG_DIR/common/network.env" ]]; then
+    source "$CONFIG_DIR/common/network.env"
 fi
 
-echo "PgCat version: $(pgcat --version)"
+# =============================================================================
+# Install PgCat (build from source for ARM64)
+# =============================================================================
+if command -v pgcat &> /dev/null; then
+    echo "pgcat already installed: $(pgcat --version)"
+else
+    echo "Building PgCat from source (ARM64 Graviton)..."
+
+    # Install build dependencies
+    apt-get update -qq
+    apt-get install -y git build-essential pkg-config libssl-dev
+
+    # Install Rust if not present
+    if ! command -v cargo &> /dev/null; then
+        echo "Installing Rust..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+    fi
+
+    # Build PgCat from source
+    TMP_DIR=$(mktemp -d)
+    cd "$TMP_DIR"
+    git clone --depth 1 --branch v1.2.0 https://github.com/postgresml/pgcat.git
+    cd pgcat
+    cargo build --release
+    cp target/release/pgcat /usr/local/bin/pgcat
+    chmod +x /usr/local/bin/pgcat
+    cd /
+    rm -rf "$TMP_DIR"
+    echo "PgCat built and installed: $(pgcat --version)"
+fi
+
+# Create pgcat config directory
+mkdir -p /etc/pgcat
 
 # =============================================================================
 # Select config based on profile
 # =============================================================================
 case "$PGCAT_PROFILE" in
     olap)
-        CONFIG_FILE="$CONFIG_DIR/pgcat-olap.toml"
+        CONFIG_FILE="$CONFIG_DIR/proxy/pgcat-olap.toml"
         echo "Using OLAP-optimized config (10K TPS target)"
         ;;
     oltp|*)
-        CONFIG_FILE="$CONFIG_DIR/pgcat.toml"
+        CONFIG_FILE="$CONFIG_DIR/proxy/pgcat.toml"
         echo "Using OLTP config"
         ;;
 esac

@@ -13,10 +13,10 @@
       }
     ],
     "value": {
-      "instance_id": "i-0c5cd313c99b0738a",
-      "instance_type": "r8g.xlarge",
+      "instance_id": "i-04b32eac8be46c7f9",
+      "instance_type": "r7g.xlarge",
       "private_ip": "10.0.1.10",
-      "public_ip": "13.229.110.106",
+      "public_ip": "18.136.120.246",
       "ram_gb": 32,
       "vcpu": 4
     }
@@ -35,10 +35,10 @@
       }
     ],
     "value": {
-      "instance_id": "i-0cae4e0bd6afa873b",
+      "instance_id": "i-025bc9d8734e07b01",
       "instance_type": "c8g.xlarge",
       "private_ip": "10.0.1.20",
-      "public_ip": "54.151.242.157",
+      "public_ip": "13.215.185.232",
       "ram_gb": 8,
       "vcpu": 4
     }
@@ -70,16 +70,16 @@
     ],
     "value": {
       "data_volumes": [
-        "vol-057dc7560a91acb53",
-        "vol-020166c4a86b861b2",
-        "vol-04a1a48acfef6850b",
-        "vol-0c4f3988561510c52"
+        "vol-051dfbd38184f9a91",
+        "vol-01bc895a6856915d5",
+        "vol-0a51e990e72e91e73",
+        "vol-08c84678b26570fda"
       ],
       "wal_volumes": [
-        "vol-08d037dde2bfdd06c",
-        "vol-0294f1dabd0d97283",
-        "vol-05e39777419f265db",
-        "vol-082ea81b36636e00f"
+        "vol-0774639b17730ecbb",
+        "vol-05053be9cde80d9a8",
+        "vol-0a815c5a487927236",
+        "vol-0685a31aad89e8bd4"
       ]
     }
   },
