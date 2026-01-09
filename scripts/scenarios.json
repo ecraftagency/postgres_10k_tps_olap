@@ -207,7 +207,7 @@
                         "--bs=1M",
                         "--rw=read",
                         "--iodepth=16",
-                        "--numjobs=1",
+                        "--numjobs=4",
                         "--group_reporting"
                     ],
                     "primary": true,
@@ -361,7 +361,7 @@
                         "--bs=1M",
                         "--rw=write",
                         "--iodepth=16",
-                        "--numjobs=1",
+                        "--numjobs=4",
                         "--group_reporting"
                     ],
                     "primary": true,
@@ -682,7 +682,8 @@
                         "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT name, setting, unit FROM pg_settings WHERE name IN ('\"'\"'bgwriter_delay'\"'\"', '\"'\"'bgwriter_lru_maxpages'\"'\"', '\"'\"'bgwriter_lru_multiplier'\"'\"', '\"'\"'effective_io_concurrency'\"'\"', '\"'\"'random_page_cost'\"'\"', '\"'\"'seq_page_cost'\"'\"');'"
                     ]
                 }
-            ]
+            ],
+            "clients_pgcat": 150
         },
         "12": {
             "id": "postgres_pure_read",
@@ -773,7 +774,8 @@
                         "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
                     ]
                 }
-            ]
+            ],
+            "clients_pgcat": 250
         },
         "13": {
             "id": "postgres_connection_storm",
@@ -864,7 +866,8 @@
                         "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
                     ]
                 }
-            ]
+            ],
+            "clients_pgcat": 100
         },
         "14": {
             "id": "postgres_high_concurrency",
@@ -955,7 +958,8 @@
                         "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
                     ]
                 }
-            ]
+            ],
+            "clients_pgcat": 400
         },
         "15": {
             "id": "postgres_tpcb_prepared",
@@ -1046,7 +1050,290 @@
                         "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d bench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'bench'\"'\"';'"
                     ]
                 }
-            ]
+            ],
+            "clients_pgcat": 250
+        },
+        "21": {
+            "id": "sysbench_tpcc",
+            "name": "Sysbench TPC-C",
+            "desc": "Standard TPC-C OLTP workload - {clients} threads, 200 warehouses (~20GB)",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "database": "sysbench",
+            "duration": 60,
+            "clients": 100,
+            "threads": 4,
+            "warehouses": 200,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "sysbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "sysbench /usr/share/sysbench/tpcc.lua --db-driver=pgsql --pgsql-host={host} --pgsql-port={port} --pgsql-user=postgres --pgsql-password=postgres --pgsql-db=sysbench --threads={clients} --tables=1 --scale={warehouses} --time={duration} --report-interval=5 run"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d sysbench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'sysbench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d sysbench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'sysbench'\"'\"';'"
+                    ]
+                }
+            ],
+            "clients_pgcat": 250
+        },
+        "22": {
+            "id": "sysbench_tpcc_high_concurrency",
+            "name": "Sysbench TPC-C High Concurrency",
+            "desc": "TPC-C with high concurrency - {clients} threads",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "database": "sysbench",
+            "duration": 60,
+            "clients": 200,
+            "threads": 8,
+            "warehouses": 200,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "sysbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "sysbench /usr/share/sysbench/tpcc.lua --db-driver=pgsql --pgsql-host={host} --pgsql-port={port} --pgsql-user=postgres --pgsql-password=postgres --pgsql-db=sysbench --threads={clients} --tables=1 --scale={warehouses} --time={duration} --report-interval=5 run"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d sysbench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'sysbench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d sysbench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'sysbench'\"'\"';'"
+                    ]
+                }
+            ],
+            "clients_pgcat": 400
+        },
+        "23": {
+            "id": "sysbench_tpcc_low_concurrency",
+            "name": "Sysbench TPC-C Low Concurrency",
+            "desc": "TPC-C with low concurrency - {clients} threads (latency focused)",
+            "topology": "primary",
+            "workload": "oltp",
+            "target_disk": "postgres",
+            "database": "sysbench",
+            "duration": 60,
+            "clients": 16,
+            "threads": 4,
+            "warehouses": 200,
+            "begin": [
+                {
+                    "name": "drop_caches",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'sudo sync && sudo sh -c \"echo 3 > /proc/sys/vm/drop_caches\"'"
+                    ]
+                },
+                {
+                    "name": "reset_pg_stats",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT pg_stat_reset(); SELECT pg_stat_reset_shared('\"'\"'bgwriter'\"'\"'); SELECT pg_stat_reset_shared('\"'\"'wal'\"'\"');'"
+                    ]
+                }
+            ],
+            "parallel": [
+                {
+                    "name": "sysbench",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "sysbench /usr/share/sysbench/tpcc.lua --db-driver=pgsql --pgsql-host={host} --pgsql-port={port} --pgsql-user=postgres --pgsql-password=postgres --pgsql-db=sysbench --threads={clients} --tables=1 --scale={warehouses} --time={duration} --report-interval=5 run"
+                    ],
+                    "primary": true
+                },
+                {
+                    "name": "iostat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'iostat -xz 1 {duration}'"
+                    ],
+                    "filter_volumes": true
+                },
+                {
+                    "name": "mpstat",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "ssh -o StrictHostKeyChecking=no ubuntu@{db_host} 'mpstat -P ALL 1 {duration}'"
+                    ]
+                }
+            ],
+            "end": [
+                {
+                    "name": "pg_stat_bgwriter",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_bgwriter;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_wal",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -c 'SELECT * FROM pg_stat_wal;'"
+                    ]
+                },
+                {
+                    "name": "pg_stat_database",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d sysbench -c 'SELECT datname, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted, deadlocks, blk_read_time, blk_write_time FROM pg_stat_database WHERE datname = '\"'\"'sysbench'\"'\"';'"
+                    ]
+                },
+                {
+                    "name": "pg_cache_hit_ratio",
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        "PGPASSWORD=postgres psql -h {host} -p {port} -U postgres -d sysbench -c 'SELECT round(sum(blks_hit)::numeric / (sum(blks_hit) + sum(blks_read) + 1) * 100, 2) AS cache_hit_pct, sum(blks_hit) as blks_hit, sum(blks_read) as blks_read FROM pg_stat_database WHERE datname = '\"'\"'sysbench'\"'\"';'"
+                    ]
+                }
+            ],
+            "clients_pgcat": 32
         }
     }
 }

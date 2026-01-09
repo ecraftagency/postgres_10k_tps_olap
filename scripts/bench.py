@@ -838,6 +838,13 @@ def run_scenario(scenario_id: str, topology: str, variables_override: Dict = {})
         return None
     
     scenario = scenarios[scenario_id]
+
+    # Delete previous results for this scenario (keep only latest run)
+    scenario_pattern = f"{scenario['id']}-*.md"
+    for old_result in RESULTS_BASE.glob(scenario_pattern):
+        old_result.unlink()
+        print(f"Deleted previous result: {old_result.name}")
+
     disk = disks.get(scenario.get("target_disk", "data"), {})
     hw = get_hardware_context()
     hardware = detect_hardware_type()
