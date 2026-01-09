@@ -12,6 +12,8 @@
 # =============================================================================
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "=== PostgreSQL Installation ==="
 
 # Source config if provided
@@ -49,9 +51,13 @@ apt-get install -y postgresql-${PG_VERSION} postgresql-client-${PG_VERSION} post
 # =============================================================================
 # STOP DEFAULT INSTANCE
 # =============================================================================
-echo "[2/7] Stopping default PostgreSQL instance..."
-systemctl stop postgresql@${PG_VERSION}-main 2>/dev/null || true
-systemctl disable postgresql@${PG_VERSION}-main 2>/dev/null || true
+echo "[2/7] Stopping and disabling default PostgreSQL instance..."
+# Stop both the parent service and the cluster service
+systemctl stop postgresql postgresql@${PG_VERSION}-main 2>/dev/null || true
+# Disable both services
+systemctl disable postgresql postgresql@${PG_VERSION}-main 2>/dev/null || true
+# Mask the cluster service to prevent accidental re-activation
+systemctl mask postgresql@${PG_VERSION}-main 2>/dev/null || true
 
 # =============================================================================
 # CREATE DIRECTORIES
@@ -230,24 +236,8 @@ EOF
 # =============================================================================
 # CREATE SYSTEMD SERVICE
 # =============================================================================
-cat > /etc/systemd/system/postgresql-bench.service << EOF
-[Unit]
-Description=PostgreSQL ${PG_VERSION} Benchmark Instance
-After=network.target
-
-[Service]
-Type=forking
-User=postgres
-Group=postgres
-Environment=PGDATA=${PG_DATA_DIR}
-ExecStart=/usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl start -D ${PG_DATA_DIR} -l ${PG_DATA_DIR}/log/startup.log
-ExecStop=/usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl stop -D ${PG_DATA_DIR} -m fast
-ExecReload=/usr/lib/postgresql/${PG_VERSION}/bin/pg_ctl reload -D ${PG_DATA_DIR}
-TimeoutSec=300
-
-[Install]
-WantedBy=multi-user.target
-EOF
+SERVICES_DIR="${SCRIPT_DIR}/../services"
+cp "${SERVICES_DIR}/postgresql-bench.service" /etc/systemd/system/postgresql-bench.service
 
 systemctl daemon-reload
 systemctl enable postgresql-bench

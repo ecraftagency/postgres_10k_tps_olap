@@ -1,8 +1,7 @@
 [Unit]
 Description=Disable Transparent Huge Pages (THP)
-DefaultDependencies=no
-Before=local-fs.target
 After=sysinit.target
+Before=postgresql-bench.service
 
 [Service]
 Type=oneshot
@@ -10,4 +9,4 @@ ExecStart=/bin/sh -c 'echo never > /sys/kernel/mm/transparent_hugepage/enabled &
 RemainAfterExit=yes
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=multi-user.target

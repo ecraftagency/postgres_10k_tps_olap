@@ -1,0 +1,17 @@
+[Unit]
+Description=PostgreSQL 16 Benchmark Instance
+After=network.target disable-thp.service
+Wants=disable-thp.service
+
+[Service]
+Type=forking
+User=postgres
+Group=postgres
+Environment=PGDATA=/data/postgresql
+ExecStart=/usr/lib/postgresql/16/bin/pg_ctl start -D /data/postgresql -l /data/postgresql/log/startup.log
+ExecStop=/usr/lib/postgresql/16/bin/pg_ctl stop -D /data/postgresql -m fast
+ExecReload=/usr/lib/postgresql/16/bin/pg_ctl reload -D /data/postgresql
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
